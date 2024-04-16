@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const markdownIt = require("markdown-it");
 const youtubePlugin = require("./markdown-plugins/youtube.js");
 
@@ -65,7 +67,7 @@ module.exports = function (eleventyConfig) {
     dir: {
       input: "docs", // Adjusted to your input directory
       includes: "_includes", // Default includes directory
-      output: "html", // Adjusted to your output directory
+      output: process.env.ELEVENTY_OUTPUT || "html", // Adjusted to your output directory
     },
   };
 };
