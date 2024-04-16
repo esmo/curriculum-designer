@@ -1,0 +1,217 @@
+
+
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    padding: 20px;
+    max-width: 800px;
+    margin: auto;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #111;
+    font-weight: 600;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+h1 {
+    font-size: 28px;
+}
+
+h2 {
+    font-size: 24px;
+}
+
+h3 {
+    font-size: 20px;
+}
+
+p, ul, ol, pre, table, blockquote {
+    margin-bottom: 20px;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+code {
+    background-color: #e7e7e7;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+pre {
+    background-color: #e7e7e7;
+    padding: 20px;
+    border-radius: 4px;
+    overflow: auto;
+}
+
+pre code {
+    background-color: transparent;
+    padding: 0;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+blockquote {
+    padding: 0 15px;
+    color: #777;
+    border-left: 4px solid #ddd;
+}
+
+table {
+  width: 100%; /* Full-width */
+  border-collapse: collapse; /* Collapses the border */
+  margin: 20px 0; /* Adds some spacing around the table */
+}
+
+th, td {
+  padding: 8px; /* Adds space around the text in each cell */
+  text-align: left; /* Aligns text to the left */
+  vertical-align: top;
+  border-bottom: 1px solid #ddd; /* Adds a light line under each row */
+}
+
+/* fix for markdown-it behaviour of wrapping content in p tags in table cells */
+td p {
+  margin: 0;
+  padding: 0;
+}
+
+
+th {
+  background-color: #f2f2f2; /* Light gray background for headers */
+  color: #333; /* Dark text for contrast */
+}
+
+tr:hover {
+  background-color: #f5f5f5; /* Lighter row background on hover for interactivity */
+}
+
+
+/* LAYOUT specific stuff */
+/* NAVIGATION */
+/* Container styling */
+nav {
+    background-color: #333; /* Dark background */
+    color: #eee;
+    overflow: hidden;
+}
+
+/* List styling */
+nav ul {
+    list-style-type: none; /* Removes bullet points */
+    margin: 0;
+    padding: 0;
+    display: flex; /* Aligns items in a row */
+}
+
+/* List item styling */
+nav ul li {
+    /* float: left; */
+}
+
+/* Link styling */
+nav ul li a {
+    display: block; /* Allows padding to increase clickable area */
+    color: white; /* Text color */
+    text-align: center; /* Centers text */
+    padding: 14px 20px; /* Top and bottom padding, left and right padding */
+    text-decoration: none; /* Removes underline from links */
+}
+
+
+/* Changes link color on hover */
+nav ul li a:hover, nav ul li.active a {
+    background-color: #ddd;
+    color: black;
+}
+
+/* Breadcrumb container */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  padding: 8px 16px;
+  background-color: #f5f5f5;
+  border-radius: 5px;
+}
+
+/* Breadcrumb item */
+.breadcrumb li {
+  font-size: 16px;
+  color: #0275d8;
+}
+
+/* Breadcrumb link */
+.breadcrumb li a {
+  color: #0275d8;
+  text-decoration: none;
+}
+
+.breadcrumb li a:hover {
+  text-decoration: underline;
+}
+
+/* Separator */
+.breadcrumb li + li:before {
+  content: ">";
+  margin: 0 8px;
+  color: #6c757d;
+}
+
+/* Current page */
+.breadcrumb li:last-child {
+  color: #6c757d;
+  cursor: default;
+}
+
+/* Optionally, for accessibility */
+.breadcrumb {
+  aria-label: "breadcrumb";
+}
+
+/* Blender Badges specific stuff */
+.badge-container {
+  display: flex;
+  width: 100%;
+}
+
+
+.badge-container > div {
+  width: 50%;
+  border: 1px solid black;
+}
+
+.badge-container > div.task {
+  width: 100%;
+}
+
+.badge-container > div >.header  {
+  background-color: #ddd;
+  font-weight: bold;
+  padding: 20px;
+}
+
+
+.badge-container > div > .content  {
+  margin: 20px;
+}
+
+li p {
+  padding: 0;
+  margin: 0;
+}

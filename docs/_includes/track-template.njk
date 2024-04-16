@@ -1,0 +1,44 @@
+<h1>{{title}}</h1>
+<p>{{description}}</p>
+
+{% set badges = collections.all | filterAttribute('badgeTrack', badgeTrack) | filterAttribute('pageType', 'Badge') %}
+
+{% set foundationBages =  badges | filterAttribute('badgeStage', 'Foundation') %}
+{% if foundationBages.length > 0 %}
+  <h3>Foundation</h3>
+  {% for item in foundationBages | sort(attribute = 'data.badgeLevel')
+ %}
+    <div class="">
+      <a href="{{item.url}}">{{item.data.badgeStage}}
+        Level
+        {{item.data.badgeLevel}}:
+        {{item.data.title}}</a>
+    </div>
+  {% endfor %}
+  {% endif %}
+
+  {% set advancedBages = badges | filterAttribute('badgeStage', 'Advanced') %}
+  {% if advancedBages.length > 0 %}
+    <h3>Advanced</h3>
+    {% for item in advancedBages | sort(attribute = 'data.badgeLevel') %}
+      <div class="">
+        <a href="{{item.url}}">{{item.data.badgeStage}}
+          Level
+          {{item.data.badgeLevel}}:
+          {{item.data.title}}</a>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {% set professionalBadges = badges | filterAttribute('badgeStage', 'Professional') %}
+  {% if professionalBadges.length > 0 %}
+    <h3>Professional</h3>
+    {% for item in professionalBadges | sort(attribute = 'data.badgeLevel') %}
+      <div class="">
+        <a href="{{item.url}}">{{item.data.badgeStage}}
+          Level
+          {{item.data.badgeLevel}}:
+          {{item.data.title}}</a>
+      </div>
+    {% endfor %}
+  {% endif %}

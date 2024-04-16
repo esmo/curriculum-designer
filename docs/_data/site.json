@@ -1,0 +1,8 @@
+{
+  "title": "Blender Curriculum",
+  "navigation": [
+    { "name": "Home", "url": "/" },
+    { "name": "Blender Badges", "url": "/blender-badges/" },
+    { "name": "Curriculum", "url": "/curriculum/" }
+  ]
+}

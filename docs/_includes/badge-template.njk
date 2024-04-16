@@ -1,0 +1,59 @@
+<h2>Blender
+  {{badgeTrack}}
+  {{badgeStage}}
+  Level
+  {{badgeLevel}}</h2>
+<h3>{{title}}</h3>
+
+<div class="badge-container">
+  <div class="skills">
+    <div class="header">
+      Skills
+    </div>
+    <div class="content">
+      {% block skills %}{% endblock %}
+    </div>
+  </div>
+  <div class="interface">
+    <div class="header">
+      Interface / Keyboard
+    </div>
+    <div class="content">
+      {% block interface %}{% endblock %}
+    </div>
+  </div>
+  <div class="ticklist">
+    <div class="header">
+      Ticklist
+    </div>
+    <div class="content">
+      {% block ticklist %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+{# <table>
+  <tr>
+    <th>Skills</th>
+    <th>Ticklist</th>
+  </tr>
+  <tr>
+    <td>
+      {% block skills %}{% endblock %}
+    </td>
+    <td>
+      {% block ticklist %}{% endblock %}
+    </td>
+  </tr>
+</table> #}
+
+<h3>Tasks for
+  {{badgeTrack}}
+  {{badgeStage}}
+  Level
+  {{badgeLevel}}</h3>
+
+{% for item in collections.all | filterAttribute("pageType", 'Task') | filterAttribute("badgeTrack", badgeTrack) | filterAttribute("badgeLevel", badgeLevel) | filterAttribute("badgeStage", badgeStage) %}
+  [{{item.data.title}}]({{item.url}}):
+  {{item.data.description}}
+{% endfor %}
