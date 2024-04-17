@@ -8,7 +8,7 @@ pageType: "Task"
 tags: [task, modeling, foundation, level-2]
 ---
 
-{% extends "docs/_includes/task-template.njk" %}
+{% extends "task-template.njk" %}
 
 {% block task %}
 

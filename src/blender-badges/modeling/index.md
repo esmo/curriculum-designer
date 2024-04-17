@@ -5,4 +5,4 @@ badgeTrack: "Modeling"
 pageType: "Track"
 tags: [track, modeling, foundation]
 ---
-{% extends "docs/_includes/track-template.njk" %}
+{% extends "track-template.njk" %}
