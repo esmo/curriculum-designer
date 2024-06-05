@@ -1,7 +1,7 @@
 const markdownIt = require("markdown-it");
 const youtubePlugin = require("./markdown-plugins/youtube.js");
 const { addFilters } = require("./extensions/filters.js");
-const { addShortcodes } = require("./extensions/shortcodes.js");
+// const { addShortcodes } = require("./extensions/shortcodes.js");
 
 module.exports = function (eleventyConfig) {
   // Your other Eleventy configuration...
@@ -31,7 +31,7 @@ module.exports = function (eleventyConfig) {
   );
 
   addFilters(eleventyConfig);
-  addShortcodes(eleventyConfig);
+  // addShortcodes(eleventyConfig);
 
   return cfg;
 };
