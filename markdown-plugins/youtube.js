@@ -1,34 +1,31 @@
-// youtubePreview.js
-module.exports = function youtube(md) {
-  // Regular expression to match YouTube URLs
-  const youtubeRegex = /https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/g;
+const youtubeEmbed = (id, description) => {
+  return `<div class="youtube-video">
+            <iframe width="560" height="315" src="https://www.youtube.com/embed/${id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            <p>${description}</p>
+          </div>`;
+};
 
-  // Replace the YouTube links with an embed
-  function replaceLink(match, videoId) {
-    return `<a href="${match}" target="_blank">
-              <img src="https://img.youtube.com/vi/${videoId}/0.jpg" alt="YouTube Video Preview">
-            </a>`;
-  }
+const extractYouTubeID = (url) => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|\/v\/)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+};
 
-  // Tokenize function to find text tokens and replace YouTube URLs
-  function tokenize(state) {
-    const tokens = state.tokens;
-    for (let j = 0; j < tokens.length; j++) {
-      const token = tokens[j];
-      if (token.type === 'inline') {
-        const children = token.children;
-        for (let i = 0; i < children.length; i++) {
-          const child = children[i];
-          if (child.type === 'text' && youtubeRegex.test(child.content)) {
-            const newContent = child.content.replace(youtubeRegex, replaceLink);
-            children[i].type = 'html_inline';
-            children[i].content = newContent;
-          }
-        }
+module.exports = function(md) {
+  md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+    const hrefIndex = tokens[idx].attrIndex('href');
+    if (hrefIndex >= 0) {
+      const url = tokens[idx].attrs[hrefIndex][1];
+      const videoId = extractYouTubeID(url);
+      if (videoId) {
+        const description = tokens[idx + 1].content;
+        tokens[idx].tag = 'div';
+        tokens[idx].attrs = [['class', 'youtube-video']];
+        tokens[idx + 1].content = youtubeEmbed(videoId, description);
+        tokens[idx + 1].type = 'html_block';
+        tokens[idx + 2].hidden = true;
       }
     }
-  }
-
-  // Apply tokenize function to both inline and block-level rules
-  md.core.ruler.push('youtube_preview', tokenize);
+    return self.renderToken(tokens, idx, options);
+  };
 };
