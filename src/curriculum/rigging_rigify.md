@@ -9,3 +9,5 @@ level: 2
 {{description}}
 
 [Rigify Fundamentals in Blender 4 and later](https://www.youtube.com/playlist?list=PLdcL5aF8ZcJt1GvL-Fcxy-fPgEFG-1fLp)
+
+The course is also available here for free: https://academy.cgdive.com/courses/rigify-basics
