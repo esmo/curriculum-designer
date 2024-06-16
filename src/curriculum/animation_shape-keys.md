@@ -2,9 +2,8 @@
 track: Animation
 title: Shape Keys
 description: Shape keys are used to animate the shape of an object by displacing vertices.
-tags: [modeling, animation]
 stage: 1
-level: 2
+level: 1
 ---
 # {{title}}
 {{description}}  

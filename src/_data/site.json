@@ -1,6 +1,7 @@
 {
   "title": "Blender Curriculum",
   "navigation": [
-    { "name": "Blender Curriculum", "url": "/curriculum/" }
+    { "name": "Blender Curriculum", "url": "/curriculum/" },
+    { "name": "Blender Resources", "url": "/resources/" }
   ]
 }

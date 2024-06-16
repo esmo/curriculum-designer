@@ -2,7 +2,6 @@
 track: Modeling
 title: Transforming Objects
 description: Basic introduction to object transforms
-tags: [modeling, animation]
 stage: 1
 level: 0
 ---

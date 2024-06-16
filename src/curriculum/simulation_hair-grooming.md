@@ -5,7 +5,6 @@ description: Ways of Grooming and Styling Hair in Blender
 stage: 1
 level: 2
 ---
-
 # {{title}}
 {{description}}  
 

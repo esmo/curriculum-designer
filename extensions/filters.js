@@ -1,4 +1,5 @@
 function addFilters(eleventyConfig) {
+
   eleventyConfig.addFilter(
     "filterAttribute",
     (collection, attributeName, attributeValue) => {
@@ -22,6 +23,7 @@ function addFilters(eleventyConfig) {
     // Convert the set to an array and return it
     return [...values];
   });
+
 };
 
 module.exports = {

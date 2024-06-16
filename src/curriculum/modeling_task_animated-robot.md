@@ -5,7 +5,6 @@ description: Basic exercise involving mesh object transforms, basic shading and 
 stage: 0
 level: 0
 ---
-
 # {{title}}
 ### {{description}}
 
