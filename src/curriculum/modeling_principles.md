@@ -3,7 +3,7 @@ track: Modeling
 title: Principles of Modeling
 description: 6 key principles for 3D modeling according to Jonathan Lampel of CGCookie.
 stage: 1
-level: 1
+level: 2
 tags: [Theory]
 ---
 #  {{title}}

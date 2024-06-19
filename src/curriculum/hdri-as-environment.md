@@ -1,9 +1,10 @@
 ---
-track: Shading
+track: Interdisciplinary
 title: HDRIs as Environment Object
 description: How to turn an HDRI into a room or an exterior environment
 stage: 2
 level: 3
+tags: [Shading, Modeling]
 ---
 # {{title}}
 {{description}}
