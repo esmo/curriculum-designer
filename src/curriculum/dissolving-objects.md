@@ -1,5 +1,6 @@
 ---
 track: Interdisciplinary
+type: Lesson
 title: Dissolving Objects
 description: Different approaches to dissolving objects
 stage: 3

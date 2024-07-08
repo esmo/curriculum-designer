@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Lesson
 title: Transforming Objects
 description: Basic introduction to object transforms
 stage: 1

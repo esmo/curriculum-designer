@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Lesson
 title: Procedural Buildings
 description: Create buildings procedurally from a collection of parts using Geometry Nodes
 stage: 3

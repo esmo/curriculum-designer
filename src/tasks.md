@@ -2,7 +2,7 @@
 
 # {{trackName}}
 
-{% for item in collections.all | filterAttribute("track", trackName) | sort(attribute="data.level") | sort(attribute="data.stage") %}
+{% for item in collections.all | filterAttribute("type", "Task") | filterAttribute("track", trackName) | sort(attribute="data.level") | sort(attribute="data.stage") %}
 [{{item.data.title}}]({{item.url}}) (Level {{item.data.stage}}.{{item.data.level}}):
 {{item.data.description}}  
 {%if item.data.tags%} [{{item.data.tags}}] {% endif %}

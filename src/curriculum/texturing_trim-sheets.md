@@ -1,5 +1,6 @@
 ---
 track: Texturing
+type: Lesson
 title: Trim Sheets
 description: Using trim sheets for optimized performance and consistent design
 stage: 2

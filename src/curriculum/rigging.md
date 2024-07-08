@@ -1,5 +1,6 @@
 ---
 track: Rigging
+type: Lesson
 title: Introduction to Rigging
 description: Fundamentals of Rigging in Blender
 stage: 0

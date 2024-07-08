@@ -1,5 +1,6 @@
 ---
 track: Rigging
+type: Lesson
 title: Rigify fundamentals
 description: Using Rigify to rig humanoid and animal characters
 stage: 1

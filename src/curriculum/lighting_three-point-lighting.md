@@ -1,5 +1,6 @@
 ---
 track: Lighting
+type: Lesson
 title: Three Point Lighting
 description: Basics about Lighting
 stage: 1

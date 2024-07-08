@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Lesson
 title: Introduction to Topology
 description: Topology Fundamentals
 stage: 1

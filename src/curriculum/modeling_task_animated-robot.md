@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Task
 title: An animated robot
 description: Basic exercise involving mesh object transforms, basic shading and keyframing
 stage: 0

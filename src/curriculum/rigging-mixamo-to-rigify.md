@@ -1,5 +1,6 @@
 ---
 track: Rigging
+type: Lesson
 title: Mixamo to Rigify
 description: How To Use Mixamo Animations in Blender Rigify
 stage: 1

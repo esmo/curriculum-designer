@@ -1,5 +1,6 @@
 ---
 track: Shading
+type: Lesson
 title: Introduction to Shading
 description: Fundamentals of Shading in Blender
 stage: 0

@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Lesson
 title: Reset the rotation to world coordinates
 description: Reset the rotation of an object to world coordinates after it has been applied.
 stage: 1

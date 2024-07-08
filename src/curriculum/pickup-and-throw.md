@@ -1,5 +1,6 @@
 ---
 track: Interdisciplinary
+type: Lesson
 title: Picking up an object and throwing it away
 description: This is an example of how to mix animation with physics simulation
 stage: 2

@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Lesson
 title: The Skin Modifier Workflow
 description: How to use the skin modifier for fast character modeling
 stage: 1

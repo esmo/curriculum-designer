@@ -1,5 +1,6 @@
 ---
 track: Texturing
+type: Lesson
 title: Tiling Textures
 description: How to create infinitely repeatable tiles.
 stage: 2

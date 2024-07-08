@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Lesson
 title: Introduction to Retopology
 description: A quick Intro into Retopology
 stage: 1

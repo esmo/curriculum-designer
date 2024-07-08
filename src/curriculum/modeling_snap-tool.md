@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Lesson
 title: Using the snap tool
 description: How to use the snap tool
 stage: 1

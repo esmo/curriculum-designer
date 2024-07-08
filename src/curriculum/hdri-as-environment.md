@@ -1,5 +1,6 @@
 ---
 track: Interdisciplinary
+type: Lesson
 title: HDRIs as Environment Object
 description: How to turn an HDRI into a room or an exterior environment
 stage: 2

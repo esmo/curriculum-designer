@@ -1,5 +1,6 @@
 ---
 track: Compositing
+type: Lesson
 title: Rotoscoping
 description: Fundamentals of Rotoscoping in Blender
 stage: 1

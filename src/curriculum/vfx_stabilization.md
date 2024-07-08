@@ -1,5 +1,6 @@
 ---
 track: VFX
+type: Lesson
 title: Video Stabilization
 description: Stabilizing footage using camera motion tracking.
 stage: 1

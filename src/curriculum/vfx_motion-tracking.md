@@ -1,5 +1,6 @@
 ---
 track: VFX
+type: Lesson
 title: Motion Tracking
 description: Fundamentals of Motion Tracking in Blender
 stage: 1

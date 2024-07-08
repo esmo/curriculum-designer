@@ -1,5 +1,6 @@
 ---
 track: Rigging
+type: Lesson
 title: Create an IK/FK switch
 description: How To create a rig that lets you switch between IK and FK controls.
 stage: 3

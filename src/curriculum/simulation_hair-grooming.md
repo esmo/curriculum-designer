@@ -1,5 +1,6 @@
 ---
 track: Physics Simulation
+type: Lesson
 title: Hair Grooming
 description: Ways of Grooming and Styling Hair in Blender
 stage: 1

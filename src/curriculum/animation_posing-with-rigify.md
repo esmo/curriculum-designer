@@ -1,5 +1,6 @@
 ---
 track: Animation
+type: Lesson
 title: Posing with Rigify
 description: How posing works with a Rigify rig
 stage: 1

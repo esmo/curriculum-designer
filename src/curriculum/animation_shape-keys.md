@@ -1,5 +1,6 @@
 ---
 track: Animation
+type: Lesson
 title: Shape Keys
 description: Shape keys are used to animate the shape of an object by displacing vertices.
 stage: 1

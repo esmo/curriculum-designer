@@ -1,5 +1,6 @@
 ---
 track: Modeling
+type: Lesson
 title: Selecting in Blender
 description: Introduction to the selection options found in the "Select" menu.
 stage: 1

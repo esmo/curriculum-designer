@@ -1,5 +1,6 @@
 ---
 track: Texturing
+type: Lesson
 title: Creating Decals
 description: How to put decals on surfaces.
 stage: 2
