@@ -11,3 +11,6 @@ level: 2
 
 
 [Blender Basics | Creases, Bevel Weights, Sharp Edges and Seams](https://www.youtube.com/watch?v=hXhvQ9qshj8)
+
+
+[Blender Edge Marking Guide](https://artisticrender.com/blender-edge-marking-guide/)
