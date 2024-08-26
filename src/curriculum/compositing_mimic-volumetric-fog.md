@@ -9,4 +9,4 @@ level: 3
 #  {{title}}
 {{description}}
 
-["Mimic Volumetric Fog Using Only Compositing"](https://www.youtube.com/watch?v=TH2ZoEvhsTs
+["Mimic Volumetric Fog Using Only Compositing"](https://www.youtube.com/watch?v=TH2ZoEvhsTs)
