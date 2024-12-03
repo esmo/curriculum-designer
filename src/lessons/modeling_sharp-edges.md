@@ -3,8 +3,9 @@ track: Modeling
 type: Lesson
 title: Sharp Edges
 description: Ways to define which edges should be sharp
-stage: 1
+stage: blah
 level: 2
+test: blah
 ---
 # {{title}}
 {{description}}
