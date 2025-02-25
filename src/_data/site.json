@@ -3,6 +3,7 @@
   "navigation": [
     { "name": "Curriculum", "url": "/curriculum/" },
     { "name": "Lessons", "url": "/lessons/" },
+    { "name": "Topics", "url": "/topics/" },
     { "name": "Excercises", "url": "/tasks/" },
     { "name": "Resources", "url": "/resources/" }
   ]
