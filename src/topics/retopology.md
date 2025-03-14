@@ -9,10 +9,9 @@ level:
 # {{title}}
 ### {{description}}
 
-Retopology is the process of converting a high-poly sculpt into a clean, low-poly model optimized for animation and rendering.
+Retopology is the process of converting a high-poly sculpt into a clean, low-poly model optimized for animation and rendering. While there are automated retopology tools available, manual retopology is often the cleanest solution.
 
 #### Create a Low-Poly Base Mesh
- - Manual Retopology (Best for Control)
  - Use Shrinkwrap Modifier on a new mesh to conform it to the high-poly sculpt.
  - Place edge loops strategically around deformable areas (joints, facial features).
  - Use the Poly Build tool or retopology add-ons like PolyQuilt or BSurfaces (both Blender Extensions) for clean results.
