@@ -12,3 +12,6 @@ level: 1
 [Camera Simulation](https://www.camerasim.com/)
 
 [Wie baue ich eine echte Kamera in Blender?](https://www.youtube.com/watch?v=YE9rEQAGpLw)
+
+
+Shutter Speed should be double the FPS, to ensure smooth motion.

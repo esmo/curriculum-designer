@@ -9,6 +9,8 @@ level: 1
 #  {{title}}
 {{description}}
 
+[Ultimate Guide to Cinematic Lighting — Types of Light & Gear Explained](https://www.youtube.com/watch?v=r2nD_knsNrc)
+
 Contrast Ratio
 - low key (e.g. 20:1) versus high key (e.g. 4:1) lighting
 

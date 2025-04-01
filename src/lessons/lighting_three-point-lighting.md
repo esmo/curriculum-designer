@@ -28,9 +28,21 @@ The key light is the primary source of illumination, creating the bulk of the fo
 
 Side lighting enhances depth by creating shadows that add dimension. Upstage lighting, or reverse keylighting, involves placing the key light behind the subject, which enhances depth and dimension by creating a more dramatic interplay of light and shadow.
 
-### Light Falloff and Color Temperature
+### Light Falloff
 
-Light falloff, the rate at which light intensity decreases over distance, is higher when the light source is closer to the subject. For more dramatic effects, keep your light source close. To control the color temperature of the light, use the blackbody node.
+Light falloff, the rate at which light intensity decreases over distance, is higher when the light source is closer to the subject:
+- The closer the light, the greater the amount of light falloff, i.e. the brighter the closest object seems to be lit compared to those farther away.
+- The farther away the light, the less difference between the illumination of the objects compared to each other.  
+
+For more dramatic effects, keep your light source close.
+For flat, even lighting, move your light farther away.
+
+### Color Temperature
+
+The temperature of a color determines how warm or cold a light appears. It mimics the color of a black object that is heated up, so the color of the light represents the color of the black object at a certain temperature.
+Values below 4000K have more red in it, hence the light appears warmer. Values above 4000K have more blue in it, so it appears colder. (Note the paradox: The colder the object is, the warmer its color appears).
+To control the color temperature of the light, use the blackbody node.
+
 
 ### Beam Shape and Secondary Key Light
 
