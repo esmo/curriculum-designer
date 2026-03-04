@@ -5,6 +5,7 @@ REPO_DIR="${REPO_DIR:-/srv/blender-curriculum/repo}"
 BRANCH="${BRANCH:-main}"
 WEB_ROOT="${WEB_ROOT:-/var/www/blender-curriculum}"
 ADMIN_SERVICE="${ADMIN_SERVICE:-}"
+FORCE_DEPLOY="${FORCE_DEPLOY:-false}"
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -41,11 +42,15 @@ local_commit="$(git rev-parse HEAD)"
 remote_commit="$(git rev-parse "origin/$BRANCH")"
 
 if [ "$local_commit" = "$remote_commit" ]; then
-  echo "No changes on origin/$BRANCH. Nothing to deploy."
-  exit 0
+  if [ "$FORCE_DEPLOY" != "true" ]; then
+    echo "No changes on origin/$BRANCH. Nothing to deploy."
+    echo "Set FORCE_DEPLOY=true to build and sync anyway."
+    exit 0
+  fi
+  echo "No new commit, but FORCE_DEPLOY=true. Continuing."
+else
+  git merge --ff-only "origin/$BRANCH"
 fi
-
-git merge --ff-only "origin/$BRANCH"
 
 npm ci
 npm run build

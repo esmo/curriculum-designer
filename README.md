@@ -89,4 +89,14 @@ BRANCH=main \
 /srv/blender-curriculum/repo/ops/deploy-pull.sh
 ```
 
+If your server repo is already on the latest commit and you still want to deploy (for initial sync), force a deploy:
+
+```bash
+REPO_DIR=/srv/blender-curriculum/repo \
+WEB_ROOT=/var/www/blender-curriculum \
+BRANCH=main \
+FORCE_DEPLOY=true \
+/srv/blender-curriculum/repo/ops/deploy-pull.sh
+```
+
 You can trigger deployment whenever you want by running `ops/deploy-pull.sh` directly (manually, webhook, or your preferred scheduler).
