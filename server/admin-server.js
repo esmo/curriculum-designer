@@ -7,7 +7,7 @@ const Fastify = require("fastify");
 const fastifyStatic = require("@fastify/static");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const CONTENT_DIR = path.join(ROOT_DIR, "src");
+const CONTENT_ROOT = path.resolve(process.env.CONTENT_ROOT || path.join(ROOT_DIR, "src"));
 const ADMIN_DIR = path.join(ROOT_DIR, "admin");
 const NPM_BINARY = process.platform === "win32" ? "npm.cmd" : "npm";
 
@@ -17,15 +17,15 @@ const REQUIRE_PROXY_AUTH = process.env.REQUIRE_PROXY_AUTH === "true";
 
 const TYPE_CONFIG = {
   lesson: {
-    dir: path.join(CONTENT_DIR, "lessons"),
+    dir: path.join(CONTENT_ROOT, "lessons"),
     typeValue: "Lesson",
   },
   task: {
-    dir: path.join(CONTENT_DIR, "tasks"),
+    dir: path.join(CONTENT_ROOT, "tasks"),
     typeValue: "Task",
   },
   topic: {
-    dir: path.join(CONTENT_DIR, "topics"),
+    dir: path.join(CONTENT_ROOT, "topics"),
     typeValue: "Topic",
   },
 };
@@ -312,6 +312,7 @@ async function start() {
     app.log.info({
       adminUrl: `http://${ADMIN_HOST}:${ADMIN_PORT}/admin/`,
       requireProxyAuth: REQUIRE_PROXY_AUTH,
+      contentRoot: CONTENT_ROOT,
     });
   } catch (error) {
     app.log.error(error);

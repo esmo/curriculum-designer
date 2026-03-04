@@ -12,9 +12,8 @@ This is the source for my Blender Curriculum.
 
 The new admin UI is available at `/admin/` and writes Markdown files into:
 
-- `src/lessons`
-- `src/tasks`
-- `src/topics`
+- default: `src/lessons`, `src/tasks`, `src/topics`
+- with `CONTENT_ROOT` set: `$CONTENT_ROOT/lessons`, `$CONTENT_ROOT/tasks`, `$CONTENT_ROOT/topics`
 
 Each save calls `npm run build` so `build/` stays up-to-date.
 
@@ -32,6 +31,47 @@ REQUIRE_PROXY_AUTH=true npm run admin
 ```
 
 This requires `X-Remote-User` to be set by Nginx.
+
+## Run admin server in production
+
+Do not use `npm run start:admin` on the server. That command is for local development.
+For production, run only the admin API/UI process via `npm run admin`.
+
+Recommended: run it as a `systemd` service.
+
+```ini
+# /etc/systemd/system/blender-curriculum-admin.service
+[Unit]
+Description=Blender Curriculum Admin Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/srv/blender-curriculum/repo
+Environment=REQUIRE_PROXY_AUTH=true
+Environment=CONTENT_ROOT=/srv/blender-curriculum-content
+ExecStart=/usr/bin/env npm run admin
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now blender-curriculum-admin.service
+sudo systemctl status blender-curriculum-admin.service
+```
+
+Logs:
+
+```bash
+sudo journalctl -u blender-curriculum-admin.service -f
+```
 
 ## Example Nginx config
 
@@ -57,12 +97,31 @@ This requires `X-Remote-User` to be set by Nginx.
   }
 ```
 
+## Create admin users (Basic Auth)
+
+`auth_basic_user_file` points to `/etc/nginx/.htpasswd`.  
+Create users with `htpasswd`:
+
+```bash
+# Debian/Ubuntu (if htpasswd is missing)
+sudo apt-get install -y apache2-utils
+
+# First user (creates the file)
+sudo htpasswd -c /etc/nginx/.htpasswd admin
+
+# Additional users (do NOT use -c, otherwise file is overwritten)
+sudo htpasswd /etc/nginx/.htpasswd editor
+```
+
+No Nginx restart is required for `.htpasswd` updates.  
+`sudo systemctl reload nginx` is optional if you want to explicitly reload configuration.
+
 ## Deployment (pull model, server initiated)
 Production deployment happens fully on the server via `ops/deploy-pull.sh`:
 
 1. fetch latest `main`
 2. fast-forward local repo
-3. run `npm ci` and `npm run build`
+3. run `npm ci` and `npm run build` (with optional external `CONTENT_ROOT`)
 4. sync `build/` to the web root via `rsync`
 5. optionally restart an admin service
 
@@ -72,31 +131,42 @@ No GitHub repository secrets are required for deployment.
 
 1. Clone this repo on the server (example: `/srv/blender-curriculum/repo`).
 2. Configure read-only GitHub access for that server clone (deploy key or token).
-3. Ensure the web root exists (example: `/var/www/blender-curriculum`) and is writable by the deploy user.
-4. Install required tools on server: `git`, `node`, `npm`, `rsync`.
-5. Make deploy script executable:
+3. Create separate content storage:
+
+```bash
+mkdir -p /srv/blender-curriculum-content/{lessons,tasks,topics}
+```
+
+4. Migrate existing content once (optional but recommended):
+
+```bash
+rsync -a /srv/blender-curriculum/repo/src/lessons/ /srv/blender-curriculum-content/lessons/
+rsync -a /srv/blender-curriculum/repo/src/tasks/ /srv/blender-curriculum-content/tasks/
+rsync -a /srv/blender-curriculum/repo/src/topics/ /srv/blender-curriculum-content/topics/
+```
+
+5. Ensure the web root exists (example: `/var/www/blender-curriculum`) and is writable by the deploy user.
+6. Install required tools on server: `git`, `node`, `npm`, `rsync`.
+7. Make deploy script executable:
 
 ```bash
 chmod +x /srv/blender-curriculum/repo/ops/deploy-pull.sh
 ```
 
-6. Test once manually:
+8. Test once manually:
 
 ```bash
 REPO_DIR=/srv/blender-curriculum/repo \
 WEB_ROOT=/var/www/blender-curriculum \
 BRANCH=main \
-/srv/blender-curriculum/repo/ops/deploy-pull.sh
-```
-
-If your server repo is already on the latest commit and you still want to deploy (for initial sync), force a deploy:
-
-```bash
-REPO_DIR=/srv/blender-curriculum/repo \
-WEB_ROOT=/var/www/blender-curriculum \
-BRANCH=main \
-FORCE_DEPLOY=true \
+CONTENT_ROOT=/srv/blender-curriculum-content \
 /srv/blender-curriculum/repo/ops/deploy-pull.sh
 ```
 
 You can trigger deployment whenever you want by running `ops/deploy-pull.sh` directly (manually, webhook, or your preferred scheduler).
+
+If you keep content inside the repo (without `CONTENT_ROOT`) and need to deploy uncommitted local content, you can still use:
+
+```bash
+ALLOW_DIRTY=true FORCE_DEPLOY=true /srv/blender-curriculum/repo/ops/deploy-pull.sh
+```
