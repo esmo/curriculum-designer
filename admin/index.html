@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blender Curriculum Admin</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fc;
+        --surface: #ffffff;
+        --text: #1a2131;
+        --muted: #54607a;
+        --primary: #1348c9;
+        --border: #dbe0ea;
+        --danger: #a51818;
+        --success: #0b6840;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 30%);
+        color: var(--text);
+      }
+
+      .wrap {
+        max-width: 920px;
+        margin: 2rem auto;
+        padding: 0 1rem 2rem;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 16px 32px rgba(19, 72, 201, 0.08);
+        padding: 1.25rem;
+      }
+
+      h1 {
+        margin: 0 0 0.6rem;
+        font-size: 1.6rem;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      form {
+        margin-top: 1.25rem;
+        display: grid;
+        gap: 1rem;
+      }
+
+      .grid-2 {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-3 {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      label {
+        display: grid;
+        gap: 0.4rem;
+        font-weight: 600;
+        font-size: 0.92rem;
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        padding: 0.65rem 0.75rem;
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 300px;
+        resize: vertical;
+      }
+
+      button {
+        width: auto;
+        background: var(--primary);
+        color: #fff;
+        border: 0;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 0.72rem 1rem;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+      }
+
+      .status {
+        min-height: 1.5rem;
+        font-size: 0.92rem;
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .status.success {
+        color: var(--success);
+      }
+
+      .hint {
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      .checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+      }
+
+      .checkbox input {
+        width: 18px;
+        height: 18px;
+      }
+
+      @media (max-width: 720px) {
+        .grid-2,
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="card">
+        <h1>Curriculum Admin</h1>
+        <p>Erstellt oder aktualisiert Eintraege in <code>src/</code> und startet danach einen Eleventy-Build.</p>
+
+        <form id="entry-form">
+          <div class="grid-2">
+            <label>
+              Typ
+              <select name="entryType" required>
+                <option value="lesson">Lesson</option>
+                <option value="task">Task</option>
+                <option value="topic">Topic</option>
+              </select>
+            </label>
+
+            <label>
+              Track
+              <input name="track" placeholder="Modeling" required />
+            </label>
+          </div>
+
+          <div class="grid-2">
+            <label>
+              Titel
+              <input id="title" name="title" placeholder="Transforming Objects" required />
+            </label>
+
+            <label>
+              Slug
+              <input id="slug" name="slug" placeholder="transforming-objects" />
+              <span class="hint">Leer lassen, um ihn aus dem Titel zu erzeugen.</span>
+            </label>
+          </div>
+
+          <div class="grid-3">
+            <label>
+              Stage
+              <input name="stage" type="number" min="0" placeholder="1" />
+            </label>
+
+            <label>
+              Level
+              <input name="level" type="number" min="0" placeholder="1" />
+            </label>
+
+            <label>
+              Tags
+              <input name="tags" placeholder="Geometry Nodes, Theory" />
+              <span class="hint">Kommagetrennte Liste.</span>
+            </label>
+          </div>
+
+          <label>
+            Beschreibung
+            <textarea name="description" rows="3" style="min-height: 100px" required></textarea>
+          </label>
+
+          <label>
+            Inhalt (Markdown)
+            <textarea name="content" placeholder="# {{title}}"></textarea>
+          </label>
+
+          <label class="checkbox">
+            <input type="checkbox" name="overwrite" />
+            Bestehende Datei mit gleichem Slug ueberschreiben
+          </label>
+
+          <div class="actions">
+            <button id="submit-btn" type="submit">Speichern</button>
+            <div id="status" class="status"></div>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("entry-form");
+      const statusEl = document.getElementById("status");
+      const submitBtn = document.getElementById("submit-btn");
+      const titleInput = document.getElementById("title");
+      const slugInput = document.getElementById("slug");
+      let slugWasEdited = false;
+
+      function slugify(value) {
+        return String(value || "")
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
+
+      function setStatus(message, type) {
+        statusEl.className = "status";
+        if (type) {
+          statusEl.classList.add(type);
+        }
+        statusEl.textContent = message;
+      }
+
+      titleInput.addEventListener("input", () => {
+        if (!slugWasEdited) {
+          slugInput.value = slugify(titleInput.value);
+        }
+      });
+
+      slugInput.addEventListener("input", () => {
+        slugWasEdited = slugInput.value.trim().length > 0;
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setStatus("Speichere...", null);
+        submitBtn.disabled = true;
+
+        const fd = new FormData(form);
+        const stageRaw = String(fd.get("stage") || "").trim();
+        const levelRaw = String(fd.get("level") || "").trim();
+        const payload = {
+          entryType: String(fd.get("entryType") || ""),
+          track: String(fd.get("track") || "").trim(),
+          title: String(fd.get("title") || "").trim(),
+          slug: String(fd.get("slug") || "").trim(),
+          description: String(fd.get("description") || "").trim(),
+          stage: stageRaw === "" ? null : Number(stageRaw),
+          level: levelRaw === "" ? null : Number(levelRaw),
+          tags: String(fd.get("tags") || "").trim(),
+          content: String(fd.get("content") || ""),
+          overwrite: fd.get("overwrite") === "on",
+        };
+
+        if (!payload.slug && payload.title) {
+          payload.slug = slugify(payload.title);
+        }
+
+        try {
+          const response = await fetch("/admin-api/entries", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || "Unbekannter Fehler");
+          }
+
+          const buildText = data.build?.ok ? "Build erfolgreich." : "Eintrag gespeichert, Build fehlgeschlagen.";
+          setStatus(`Gespeichert: ${data.file}. ${buildText}`, data.build?.ok ? "success" : "error");
+        } catch (error) {
+          setStatus(error.message, "error");
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

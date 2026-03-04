@@ -4,7 +4,9 @@
     "clean": "shx rm -rf build_bac && shx mv build build_bac || true",
     "watch": "onchange 'src/**/*' -- npm-run-all clean build",
     "serve": "npm run build && browser-sync start --server build/ --files 'build/**/*' --no-notify",
-    "start": "npm-run-all clean build --parallel watch serve"
+    "admin": "node server/admin-server.js",
+    "start": "npm-run-all clean build --parallel watch serve",
+    "start:admin": "npm-run-all clean build --parallel watch serve admin"
   },
   "devDependencies": {
     "@11ty/eleventy": "^2.0.1",
@@ -15,5 +17,9 @@
     "onchange": "^7.1.0",
     "serve": "^14.2.1",
     "shx": "^0.3.4"
+  },
+  "dependencies": {
+    "@fastify/static": "^9.0.0",
+    "fastify": "^5.7.4"
   }
 }
