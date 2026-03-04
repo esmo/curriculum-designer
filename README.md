@@ -56,3 +56,37 @@ This requires `X-Remote-User` to be set by Nginx.
     proxy_set_header X-Remote-User $remote_user;
   }
 ```
+
+## Deployment (pull model, server initiated)
+Production deployment happens fully on the server via `ops/deploy-pull.sh`:
+
+1. fetch latest `main`
+2. fast-forward local repo
+3. run `npm ci` and `npm run build`
+4. sync `build/` to the web root via `rsync`
+5. optionally restart an admin service
+
+No GitHub repository secrets are required for deployment.
+
+### One-time server setup
+
+1. Clone this repo on the server (example: `/srv/blender-curriculum/repo`).
+2. Configure read-only GitHub access for that server clone (deploy key or token).
+3. Ensure the web root exists (example: `/var/www/blender-curriculum`) and is writable by the deploy user.
+4. Install required tools on server: `git`, `node`, `npm`, `rsync`.
+5. Make deploy script executable:
+
+```bash
+chmod +x /srv/blender-curriculum/repo/ops/deploy-pull.sh
+```
+
+6. Test once manually:
+
+```bash
+REPO_DIR=/srv/blender-curriculum/repo \
+WEB_ROOT=/var/www/blender-curriculum \
+BRANCH=main \
+/srv/blender-curriculum/repo/ops/deploy-pull.sh
+```
+
+You can trigger deployment whenever you want by running `ops/deploy-pull.sh` directly (manually, webhook, or your preferred scheduler).
