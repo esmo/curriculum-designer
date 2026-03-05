@@ -8,14 +8,21 @@ const fastifyStatic = require("@fastify/static");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const CONTENT_ROOT = path.resolve(
-  process.env.CONTENT_ROOT || path.join(ROOT_DIR, "content")
+  process.env.BLENDER_CURRICULUM_CONTENT_ROOT || path.join(ROOT_DIR, "content")
 );
+const WEB_ROOT = process.env.BLENDER_CURRICULUM_WEB_ROOT
+  ? path.resolve(process.env.BLENDER_CURRICULUM_WEB_ROOT)
+  : "";
 const ADMIN_DIR = path.join(ROOT_DIR, "admin");
 const NPM_BINARY = process.platform === "win32" ? "npm.cmd" : "npm";
+const RSYNC_BINARY = "rsync";
 
-const ADMIN_PORT = Number.parseInt(process.env.ADMIN_PORT || "8787", 10);
-const ADMIN_HOST = process.env.ADMIN_HOST || "127.0.0.1";
-const REQUIRE_PROXY_AUTH = process.env.REQUIRE_PROXY_AUTH === "true";
+const ADMIN_PORT = Number.parseInt(
+  process.env.BLENDER_CURRICULUM_ADMIN_PORT || "8787",
+  10
+);
+const ADMIN_HOST = process.env.BLENDER_CURRICULUM_ADMIN_HOST || "127.0.0.1";
+const REQUIRE_PROXY_AUTH = process.env.BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH === "true";
 
 const TYPE_CONFIG = {
   lesson: {
@@ -139,12 +146,84 @@ function runBuild() {
     });
 
     child.on("close", (code) => {
-      resolve({
+      const buildResult = {
         ok: code === 0,
         code,
         startedAt,
         endedAt: new Date().toISOString(),
         error: code === 0 ? null : stderr.trim() || `Build exited with code ${code}`,
+      };
+
+      if (!buildResult.ok) {
+        resolve({
+          ...buildResult,
+          sync: {
+            ok: false,
+            skipped: true,
+            code: null,
+            startedAt: null,
+            endedAt: null,
+            error: "Build failed. Sync skipped.",
+          },
+        });
+        return;
+      }
+
+      runSyncToWebRoot().then((syncResult) => {
+        resolve({
+          ...buildResult,
+          sync: syncResult,
+        });
+      });
+    });
+  });
+}
+
+function runSyncToWebRoot() {
+  return new Promise((resolve) => {
+    if (!WEB_ROOT) {
+      resolve({
+        ok: true,
+        skipped: true,
+        code: null,
+        startedAt: null,
+        endedAt: null,
+        error: null,
+      });
+      return;
+    }
+
+    const startedAt = new Date().toISOString();
+    const child = spawn(RSYNC_BINARY, ["-az", "--delete", path.join(ROOT_DIR, "build/"), `${WEB_ROOT}/`], {
+      cwd: ROOT_DIR,
+      env: process.env,
+    });
+
+    let stderr = "";
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      resolve({
+        ok: false,
+        skipped: false,
+        code: null,
+        startedAt,
+        endedAt: new Date().toISOString(),
+        error: error.message,
+      });
+    });
+
+    child.on("close", (code) => {
+      resolve({
+        ok: code === 0,
+        skipped: false,
+        code,
+        startedAt,
+        endedAt: new Date().toISOString(),
+        error: code === 0 ? null : stderr.trim() || `Sync exited with code ${code}`,
       });
     });
   });
@@ -289,7 +368,8 @@ app.post(
       await fs.writeFile(filePath, markdown, "utf8");
 
       const build = await enqueueBuild();
-      const statusCode = build.ok ? 201 : 202;
+      const deployOk = build.ok && (build.sync ? build.sync.ok : true);
+      const statusCode = deployOk ? 201 : 202;
 
       reply.code(statusCode).send({
         ok: true,
@@ -315,6 +395,8 @@ async function start() {
       adminUrl: `http://${ADMIN_HOST}:${ADMIN_PORT}/admin/`,
       requireProxyAuth: REQUIRE_PROXY_AUTH,
       contentRoot: CONTENT_ROOT,
+      webRoot: WEB_ROOT || null,
+      syncToWebRoot: Boolean(WEB_ROOT),
     });
   } catch (error) {
     app.log.error(error);

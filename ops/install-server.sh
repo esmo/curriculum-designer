@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="${REPO_DIR:-}"
-WEB_ROOT="${WEB_ROOT:-}"
-BRANCH="${BRANCH:-}"
-THEME_ROOT="${THEME_ROOT:-}"
-CONTENT_ROOT="${CONTENT_ROOT:-}"
-ENV_FILE="${ENV_FILE:-}"
-ADMIN_USER="${ADMIN_USER:-}"
-ADMIN_GROUP="${ADMIN_GROUP:-}"
-ADMIN_HOST="${ADMIN_HOST:-}"
-ADMIN_PORT="${ADMIN_PORT:-}"
-MIGRATE_CONTENT="${MIGRATE_CONTENT:-true}"
-OVERWRITE_ENV="${OVERWRITE_ENV:-false}"
-INSTALL_DEPS="${INSTALL_DEPS:-false}"
-ADMIN_SERVICE="${ADMIN_SERVICE:-}"
-SYSTEMD_UNIT_NAME="${SYSTEMD_UNIT_NAME:-blender-curriculum-admin.service}"
-NGINX_SNIPPET_NAME="${NGINX_SNIPPET_NAME:-blender-curriculum-admin.conf}"
-NGINX_HTPASSWD_PATH="${NGINX_HTPASSWD_PATH:-/etc/nginx/.htpasswd}"
+REPO_DIR="${BLENDER_CURRICULUM_REPO_DIR:-}"
+WEB_ROOT="${BLENDER_CURRICULUM_WEB_ROOT:-}"
+BRANCH="${BLENDER_CURRICULUM_BRANCH:-}"
+THEME_ROOT="${BLENDER_CURRICULUM_THEME_ROOT:-}"
+CONTENT_ROOT="${BLENDER_CURRICULUM_CONTENT_ROOT:-}"
+ENV_FILE="${BLENDER_CURRICULUM_ENV_FILE:-}"
+ADMIN_USER="${BLENDER_CURRICULUM_ADMIN_USER:-}"
+ADMIN_GROUP="${BLENDER_CURRICULUM_ADMIN_GROUP:-}"
+ADMIN_HOST="${BLENDER_CURRICULUM_ADMIN_HOST:-}"
+ADMIN_PORT="${BLENDER_CURRICULUM_ADMIN_PORT:-}"
+MIGRATE_CONTENT="${BLENDER_CURRICULUM_MIGRATE_CONTENT:-true}"
+OVERWRITE_ENV="${BLENDER_CURRICULUM_OVERWRITE_ENV:-false}"
+INSTALL_DEPS="${BLENDER_CURRICULUM_INSTALL_DEPS:-false}"
+ADMIN_SERVICE="${BLENDER_CURRICULUM_ADMIN_SERVICE:-}"
+SYSTEMD_UNIT_NAME="${BLENDER_CURRICULUM_SYSTEMD_UNIT_NAME:-blender-curriculum-admin.service}"
+NGINX_SNIPPET_NAME="${BLENDER_CURRICULUM_NGINX_SNIPPET_NAME:-blender-curriculum-admin.conf}"
+NGINX_HTPASSWD_PATH="${BLENDER_CURRICULUM_NGINX_HTPASSWD_PATH:-/etc/nginx/.htpasswd}"
 
 log() {
   printf '[install] %s\n' "$1"
@@ -73,27 +73,27 @@ prompt_if_unset() {
 }
 
 collect_configuration() {
-  prompt_if_unset REPO_DIR "Repository path (REPO_DIR)" "/srv/blender-curriculum/repo"
-  prompt_if_unset WEB_ROOT "Web root path (WEB_ROOT)" "/var/www/blender-curriculum"
-  prompt_if_unset BRANCH "Git branch (BRANCH)" "main"
-  prompt_if_unset THEME_ROOT "Theme root path (THEME_ROOT)" "$REPO_DIR/theme"
-  prompt_if_unset CONTENT_ROOT "Content root path (CONTENT_ROOT)" "/srv/blender-curriculum-content"
-  prompt_if_unset ENV_FILE "Env file path (ENV_FILE)" "/etc/blender-curriculum/deploy.env"
-  prompt_if_unset ADMIN_USER "Admin service user (ADMIN_USER)" "$(default_service_user)"
-  prompt_if_unset ADMIN_GROUP "Admin service group (ADMIN_GROUP)" "$ADMIN_USER"
-  prompt_if_unset ADMIN_HOST "Admin bind host (ADMIN_HOST)" "127.0.0.1"
-  prompt_if_unset ADMIN_PORT "Admin bind port (ADMIN_PORT)" "8787"
+  prompt_if_unset REPO_DIR "Repository path (BLENDER_CURRICULUM_REPO_DIR)" "/srv/blender-curriculum/repo"
+  prompt_if_unset WEB_ROOT "Web root path (BLENDER_CURRICULUM_WEB_ROOT)" "/var/www/blender-curriculum"
+  prompt_if_unset BRANCH "Git branch (BLENDER_CURRICULUM_BRANCH)" "main"
+  prompt_if_unset THEME_ROOT "Theme root path (BLENDER_CURRICULUM_THEME_ROOT)" "$REPO_DIR/theme"
+  prompt_if_unset CONTENT_ROOT "Content root path (BLENDER_CURRICULUM_CONTENT_ROOT)" "/srv/blender-curriculum-content"
+  prompt_if_unset ENV_FILE "Env file path (BLENDER_CURRICULUM_ENV_FILE)" "/etc/blender-curriculum/deploy.env"
+  prompt_if_unset ADMIN_USER "Admin service user (BLENDER_CURRICULUM_ADMIN_USER)" "$(default_service_user)"
+  prompt_if_unset ADMIN_GROUP "Admin service group (BLENDER_CURRICULUM_ADMIN_GROUP)" "$ADMIN_USER"
+  prompt_if_unset ADMIN_HOST "Admin bind host (BLENDER_CURRICULUM_ADMIN_HOST)" "127.0.0.1"
+  prompt_if_unset ADMIN_PORT "Admin bind port (BLENDER_CURRICULUM_ADMIN_PORT)" "8787"
 }
 
 validate_admin_config() {
   case "$ADMIN_PORT" in
     '' | *[!0-9]*)
-      fail "ADMIN_PORT must be a numeric port between 1 and 65535."
+      fail "BLENDER_CURRICULUM_ADMIN_PORT must be a numeric port between 1 and 65535."
       ;;
   esac
 
   if [ "$ADMIN_PORT" -lt 1 ] || [ "$ADMIN_PORT" -gt 65535 ]; then
-    fail "ADMIN_PORT must be between 1 and 65535."
+    fail "BLENDER_CURRICULUM_ADMIN_PORT must be between 1 and 65535."
   fi
 }
 
@@ -110,11 +110,12 @@ Type=simple
 User=$ADMIN_USER
 Group=$ADMIN_GROUP
 WorkingDirectory=$REPO_DIR
-Environment=REQUIRE_PROXY_AUTH=true
-Environment=THEME_ROOT=$THEME_ROOT
-Environment=CONTENT_ROOT=$CONTENT_ROOT
-Environment=ADMIN_HOST=$ADMIN_HOST
-Environment=ADMIN_PORT=$ADMIN_PORT
+Environment=BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH=true
+Environment=BLENDER_CURRICULUM_THEME_ROOT=$THEME_ROOT
+Environment=BLENDER_CURRICULUM_CONTENT_ROOT=$CONTENT_ROOT
+Environment=BLENDER_CURRICULUM_WEB_ROOT=$WEB_ROOT
+Environment=BLENDER_CURRICULUM_ADMIN_HOST=$ADMIN_HOST
+Environment=BLENDER_CURRICULUM_ADMIN_PORT=$ADMIN_PORT
 ExecStart=/usr/bin/env npm run admin
 Restart=always
 RestartSec=3
@@ -193,11 +194,11 @@ maybe_install_deps() {
   fi
 
   if [ "$(id -u)" -ne 0 ]; then
-    fail "INSTALL_DEPS=true requires root (sudo)."
+    fail "BLENDER_CURRICULUM_INSTALL_DEPS=true requires root (sudo)."
   fi
 
   if ! command -v apt-get >/dev/null 2>&1; then
-    fail "INSTALL_DEPS=true currently supports apt-get only."
+    fail "BLENDER_CURRICULUM_INSTALL_DEPS=true currently supports apt-get only."
   fi
 
   log "Installing dependencies via apt-get (git, rsync, nodejs, npm)."
@@ -217,19 +218,19 @@ write_env_file() {
 
   log "Writing env file: $ENV_FILE"
   cat >"$ENV_FILE" <<EOF
-REPO_DIR=$REPO_DIR
-WEB_ROOT=$WEB_ROOT
-BRANCH=$BRANCH
-THEME_ROOT=$THEME_ROOT
-CONTENT_ROOT=$CONTENT_ROOT
+BLENDER_CURRICULUM_REPO_DIR=$REPO_DIR
+BLENDER_CURRICULUM_WEB_ROOT=$WEB_ROOT
+BLENDER_CURRICULUM_BRANCH=$BRANCH
+BLENDER_CURRICULUM_THEME_ROOT=$THEME_ROOT
+BLENDER_CURRICULUM_CONTENT_ROOT=$CONTENT_ROOT
 # Optional:
-# ADMIN_SERVICE=$SYSTEMD_UNIT_NAME
-# ALLOW_DIRTY=false
-# FORCE_DEPLOY=false
+# BLENDER_CURRICULUM_ADMIN_SERVICE=$SYSTEMD_UNIT_NAME
+# BLENDER_CURRICULUM_ALLOW_DIRTY=false
+# BLENDER_CURRICULUM_FORCE_DEPLOY=false
 EOF
 
   if [ -n "$ADMIN_SERVICE" ]; then
-    printf 'ADMIN_SERVICE=%s\n' "$ADMIN_SERVICE" >>"$ENV_FILE"
+    printf 'BLENDER_CURRICULUM_ADMIN_SERVICE=%s\n' "$ADMIN_SERVICE" >>"$ENV_FILE"
   fi
 
   chmod 600 "$ENV_FILE" || true
@@ -237,7 +238,7 @@ EOF
 
 migrate_content() {
   if [ "$MIGRATE_CONTENT" != "true" ]; then
-    log "Skipping content migration (MIGRATE_CONTENT=false)."
+    log "Skipping content migration (BLENDER_CURRICULUM_MIGRATE_CONTENT=false)."
     return
   fi
 
@@ -261,7 +262,7 @@ main() {
   require_cmd npm
   require_cmd rsync
 
-  [ -d "$REPO_DIR/.git" ] || fail "REPO_DIR is not a git repository: $REPO_DIR"
+  [ -d "$REPO_DIR/.git" ] || fail "BLENDER_CURRICULUM_REPO_DIR is not a git repository: $REPO_DIR"
   [ -f "$REPO_DIR/ops/deploy-pull.sh" ] || fail "Missing deploy script in repo."
 
   log "Creating required directories."

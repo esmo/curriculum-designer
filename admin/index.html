@@ -156,7 +156,7 @@
     <main class="wrap">
       <section class="card">
         <h1>Curriculum Admin</h1>
-        <p>Erstellt oder aktualisiert Eintraege in <code>content/</code> (oder <code>$CONTENT_ROOT</code>) und startet danach einen Eleventy-Build.</p>
+        <p>Erstellt oder aktualisiert Eintraege in <code>content/</code> (oder <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) und startet danach einen Eleventy-Build.</p>
 
         <form id="entry-form">
           <div class="grid-2">
@@ -302,8 +302,23 @@
             throw new Error(data.error || "Unbekannter Fehler");
           }
 
-          const buildText = data.build?.ok ? "Build erfolgreich." : "Eintrag gespeichert, Build fehlgeschlagen.";
-          setStatus(`Gespeichert: ${data.file}. ${buildText}`, data.build?.ok ? "success" : "error");
+          const sync = data.build?.sync;
+          let buildText = "Build erfolgreich.";
+          let statusType = "success";
+
+          if (!data.build?.ok) {
+            buildText = "Eintrag gespeichert, Build fehlgeschlagen.";
+            statusType = "error";
+          } else if (sync && !sync.ok && !sync.skipped) {
+            buildText = "Build erfolgreich, Sync nach BLENDER_CURRICULUM_WEB_ROOT fehlgeschlagen.";
+            statusType = "error";
+          } else if (sync && sync.ok && !sync.skipped) {
+            buildText = "Build und Sync erfolgreich.";
+          } else if (sync && sync.skipped) {
+            buildText = "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
+          }
+
+          setStatus(`Gespeichert: ${data.file}. ${buildText}`, statusType);
         } catch (error) {
           setStatus(error.message, "error");
         } finally {

@@ -7,10 +7,10 @@ const { spawnSync } = require("node:child_process");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const THEME_ROOT = path.resolve(
-  process.env.THEME_ROOT || path.join(ROOT_DIR, "theme")
+  process.env.BLENDER_CURRICULUM_THEME_ROOT || path.join(ROOT_DIR, "theme")
 );
 const CONTENT_ROOT = path.resolve(
-  process.env.CONTENT_ROOT || path.join(ROOT_DIR, "content")
+  process.env.BLENDER_CURRICULUM_CONTENT_ROOT || path.join(ROOT_DIR, "content")
 );
 const OUTPUT_DIR = path.join(ROOT_DIR, "build");
 const CONTENT_DIRS = ["lessons", "tasks", "topics"];

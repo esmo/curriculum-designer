@@ -1,48 +1,144 @@
-# Blender Curriculum web pages
+# Blender Curriculum Web Pages
 
-This is the source for my Blender Curriculum.
+Source repository for the Blender Curriculum site and admin workflow.
 
-## Development
+## Quick Start (Server)
 
-- `npm run start`: Static Eleventy preview (existing workflow).
-- `npm run admin`: Runs the local Fastify admin server on `127.0.0.1:8787`.
-- `npm run start:admin`: Runs static preview + admin server together.
+1. Clone this repository on the server, for example to `/srv/blender-curriculum/repo`.
+2. Configure read-only GitHub access for this server clone (deploy key or token).
+3. Run the installation script.
 
-## Source layout
-
-- `theme/`: templates, navigation data, styles, and structural pages.
-- `content/`: editorial content (`lessons/`, `tasks/`, `topics/`).
-
-## Admin entry form
-
-The new admin UI is available at `/admin/` and writes Markdown files into:
-
-- default: `content/lessons`, `content/tasks`, `content/topics`
-- with `CONTENT_ROOT` set: `$CONTENT_ROOT/lessons`, `$CONTENT_ROOT/tasks`, `$CONTENT_ROOT/topics`
-
-Each save calls `npm run build` so `build/` stays up-to-date.
-
-## Security model
-
-The app is designed to be protected by Nginx Basic Auth in front of:
-
-- `/admin/`
-- `/admin-api/`
-
-If you want to enforce that only proxied/authenticated requests can reach the API, start the admin server with:
+Example with explicit variables:
 
 ```bash
-REQUIRE_PROXY_AUTH=true npm run admin
+sudo BLENDER_CURRICULUM_REPO_DIR=/srv/blender-curriculum/repo \
+  BLENDER_CURRICULUM_WEB_ROOT=/var/www/blender-curriculum \
+  BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content \
+  BLENDER_CURRICULUM_ENV_FILE=/etc/blender-curriculum/deploy.env \
+  /srv/blender-curriculum/repo/ops/install-server.sh
 ```
 
-This requires `X-Remote-User` to be set by Nginx.
+You can also run it interactively (the script prompts for missing values):
 
-## Run admin server in production
+```bash
+sudo /srv/blender-curriculum/repo/ops/install-server.sh
+```
 
-Do not use `npm run start:admin` on the server. That command is for local development.
-For production, run only the admin API/UI process via `npm run admin`.
+After installation:
 
-Recommended: run it as a `systemd` service.
+```bash
+set -a
+source /etc/blender-curriculum/deploy.env
+set +a
+/srv/blender-curriculum/repo/ops/deploy-pull.sh
+```
+
+If installed as root, finalize services:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now blender-curriculum-admin.service
+```
+
+Include the generated Nginx snippet inside your `server {}` block:
+
+```nginx
+include /etc/nginx/snippets/blender-curriculum-admin.conf;
+```
+
+Then validate and reload Nginx:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+## Environment Variables (Prefixed)
+
+Use prefixed names to avoid collisions with other software.
+
+Core deployment variables:
+
+- `BLENDER_CURRICULUM_REPO_DIR`
+- `BLENDER_CURRICULUM_WEB_ROOT`
+- `BLENDER_CURRICULUM_BRANCH`
+- `BLENDER_CURRICULUM_THEME_ROOT`
+- `BLENDER_CURRICULUM_CONTENT_ROOT`
+
+Optional deployment variables:
+
+- `BLENDER_CURRICULUM_ADMIN_SERVICE`
+- `BLENDER_CURRICULUM_ALLOW_DIRTY`
+- `BLENDER_CURRICULUM_FORCE_DEPLOY`
+
+Install-script specific variables:
+
+- `BLENDER_CURRICULUM_ENV_FILE`
+- `BLENDER_CURRICULUM_MIGRATE_CONTENT`
+- `BLENDER_CURRICULUM_OVERWRITE_ENV`
+- `BLENDER_CURRICULUM_INSTALL_DEPS`
+- `BLENDER_CURRICULUM_ADMIN_USER`
+- `BLENDER_CURRICULUM_ADMIN_GROUP`
+- `BLENDER_CURRICULUM_ADMIN_HOST`
+- `BLENDER_CURRICULUM_ADMIN_PORT`
+- `BLENDER_CURRICULUM_SYSTEMD_UNIT_NAME`
+- `BLENDER_CURRICULUM_NGINX_SNIPPET_NAME`
+- `BLENDER_CURRICULUM_NGINX_HTPASSWD_PATH`
+
+Admin runtime variable:
+
+- `BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH`
+
+## Deployment Model
+
+Production deployment is server-initiated via `ops/deploy-pull.sh`.
+
+The script performs:
+
+1. `git fetch` and fast-forward merge on the configured branch.
+2. `npm ci`.
+3. `npm run build` using configured theme/content roots.
+4. `rsync` from `build/` to `BLENDER_CURRICULUM_WEB_ROOT`.
+5. optional admin service restart.
+
+No GitHub Action secrets are required for deployment.
+
+Manual test run:
+
+```bash
+BLENDER_CURRICULUM_REPO_DIR=/srv/blender-curriculum/repo \
+BLENDER_CURRICULUM_WEB_ROOT=/var/www/blender-curriculum \
+BLENDER_CURRICULUM_BRANCH=main \
+BLENDER_CURRICULUM_THEME_ROOT=/srv/blender-curriculum/repo/theme \
+BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content \
+/srv/blender-curriculum/repo/ops/deploy-pull.sh
+```
+
+Example `.env` file (`/etc/blender-curriculum/deploy.env`):
+
+```bash
+BLENDER_CURRICULUM_REPO_DIR=/srv/blender-curriculum/repo
+BLENDER_CURRICULUM_WEB_ROOT=/var/www/blender-curriculum
+BLENDER_CURRICULUM_BRANCH=main
+BLENDER_CURRICULUM_THEME_ROOT=/srv/blender-curriculum/repo/theme
+BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content
+# Optional:
+# BLENDER_CURRICULUM_ADMIN_SERVICE=blender-curriculum-admin.service
+# BLENDER_CURRICULUM_ALLOW_DIRTY=false
+# BLENDER_CURRICULUM_FORCE_DEPLOY=false
+```
+
+Recommended permissions:
+
+```bash
+sudo chmod 600 /etc/blender-curriculum/deploy.env
+```
+
+## Admin Server (Production)
+
+Do not use `npm run start:admin` on production servers.
+Use the admin process only (`npm run admin`) behind Nginx auth.
+
+Suggested `systemd` unit:
 
 ```ini
 # /etc/systemd/system/blender-curriculum-admin.service
@@ -56,9 +152,12 @@ Type=simple
 User=deploy
 Group=deploy
 WorkingDirectory=/srv/blender-curriculum/repo
-Environment=REQUIRE_PROXY_AUTH=true
-Environment=THEME_ROOT=/srv/blender-curriculum/repo/theme
-Environment=CONTENT_ROOT=/srv/blender-curriculum-content
+Environment=BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH=true
+Environment=BLENDER_CURRICULUM_THEME_ROOT=/srv/blender-curriculum/repo/theme
+Environment=BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content
+Environment=BLENDER_CURRICULUM_WEB_ROOT=/var/www/blender-curriculum
+Environment=BLENDER_CURRICULUM_ADMIN_HOST=127.0.0.1
+Environment=BLENDER_CURRICULUM_ADMIN_PORT=8787
 ExecStart=/usr/bin/env npm run admin
 Restart=always
 RestartSec=3
@@ -67,200 +166,75 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now blender-curriculum-admin.service
-sudo systemctl status blender-curriculum-admin.service
-```
+Admin save behavior:
 
-Logs:
+- writes Markdown into `content/` or `BLENDER_CURRICULUM_CONTENT_ROOT`
+- runs `npm run build`
+- if `BLENDER_CURRICULUM_WEB_ROOT` is set, syncs `build/` to web root via `rsync`
 
-```bash
-sudo journalctl -u blender-curriculum-admin.service -f
-```
+## Nginx and Basic Auth
 
-## Example Nginx config
+Nginx should protect both endpoints:
+
+- `/admin/`
+- `/admin-api/`
+
+Example snippet:
 
 ```nginx
-  location /admin/ {
-    auth_basic "Admin";
-    auth_basic_user_file /etc/nginx/.htpasswd;
-    proxy_pass http://127.0.0.1:8787/admin/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Remote-User $remote_user;
-  }
+location = /admin {
+  return 301 /admin/;
+}
 
-  location /admin-api/ {
-    auth_basic "Admin";
-    auth_basic_user_file /etc/nginx/.htpasswd;
-    proxy_pass http://127.0.0.1:8787/admin-api/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Remote-User $remote_user;
-  }
+location /admin/ {
+  auth_basic "Admin";
+  auth_basic_user_file /etc/nginx/.htpasswd;
+  proxy_pass http://127.0.0.1:8787/admin/;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Remote-User $remote_user;
+}
+
+location /admin-api/ {
+  auth_basic "Admin";
+  auth_basic_user_file /etc/nginx/.htpasswd;
+  proxy_pass http://127.0.0.1:8787/admin-api/;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Remote-User $remote_user;
+}
 ```
 
-## Create admin users (Basic Auth)
-
-`auth_basic_user_file` points to `/etc/nginx/.htpasswd`.  
-Create users with `htpasswd`:
+Create users:
 
 ```bash
-# Debian/Ubuntu (if htpasswd is missing)
 sudo apt-get install -y apache2-utils
-
-# First user (creates the file)
 sudo htpasswd -c /etc/nginx/.htpasswd admin
-
-# Additional users (do NOT use -c, otherwise file is overwritten)
 sudo htpasswd /etc/nginx/.htpasswd editor
 ```
 
+## Why `build/` Is Kept As Staging
 
-## Deployment (pull model, server initiated)
-Production deployment happens fully on the server via `ops/deploy-pull.sh`:
+`build/` is intentionally used as a staging directory before syncing to `BLENDER_CURRICULUM_WEB_ROOT`.
 
-1. fetch latest `main`
-2. fast-forward local repo
-3. run `npm ci` and `npm run build` using `THEME_ROOT` + `CONTENT_ROOT`
-4. sync `build/` to the web root via `rsync`
-5. optionally restart an admin service
+This keeps deployment robust:
 
-No GitHub repository secrets are required for deployment.
+- incomplete/failed builds do not partially overwrite live files
+- `rsync --delete` guarantees that removed pages/assets are also removed live
+- build output and published output are easy to compare/debug
 
-### One-time server setup
+## Source Layout
 
-You can automate this section with:
+- `theme/`: templates, navigation data, styles, structural pages.
+- `content/`: editorial content (`lessons/`, `tasks/`, `topics/`).
+- `admin/`: static admin frontend.
+- `server/`: admin API server.
+- `ops/`: build/deploy/install scripts.
 
-```bash
-sudo REPO_DIR=/srv/blender-curriculum/repo \
-  WEB_ROOT=/var/www/blender-curriculum \
-  CONTENT_ROOT=/srv/blender-curriculum-content \
-  ENV_FILE=/etc/blender-curriculum/deploy.env \
-  /srv/blender-curriculum/repo/ops/install-server.sh
-```
+## Development
 
-If one of these variables is not set, `ops/install-server.sh` prompts for it interactively.
-You can also run it without variables and answer the prompts:
-
-```bash
-sudo /srv/blender-curriculum/repo/ops/install-server.sh
-```
-
-Useful options:
-
-- `MIGRATE_CONTENT=false`: skip initial content copy from repo to external content.
-- `OVERWRITE_ENV=true`: recreate `deploy.env` even if it already exists.
-- `INSTALL_DEPS=true`: install `git`, `rsync`, `nodejs`, `npm` via `apt-get` (root, Debian/Ubuntu).
-- `ADMIN_USER` / `ADMIN_GROUP`: user/group for the generated admin `systemd` service.
-- `ADMIN_HOST` / `ADMIN_PORT`: bind address for admin server and proxy target in generated Nginx config.
-- `SYSTEMD_UNIT_NAME`: name of generated service unit (default: `blender-curriculum-admin.service`).
-- `NGINX_SNIPPET_NAME`: name of generated Nginx snippet (default: `blender-curriculum-admin.conf`).
-- `NGINX_HTPASSWD_PATH`: htpasswd file path used in generated Nginx snippet.
-
-The installer now generates runtime config files with your configured paths/values:
-
-- `$REPO_DIR/ops/generated/$SYSTEMD_UNIT_NAME`
-- `$REPO_DIR/ops/generated/$NGINX_SNIPPET_NAME`
-
-If you run the installer as `root`, it also installs them automatically to:
-
-- `/etc/systemd/system/$SYSTEMD_UNIT_NAME`
-- `/etc/nginx/snippets/$NGINX_SNIPPET_NAME`
-
-After installation as `root`:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now blender-curriculum-admin.service # or your SYSTEMD_UNIT_NAME
-```
-
-Include the generated Nginx snippet in your server block:
-
-```nginx
-include /etc/nginx/snippets/blender-curriculum-admin.conf; # or your NGINX_SNIPPET_NAME
-```
-
-Then validate/reload Nginx:
-
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-1. Clone this repo on the server (example: `/srv/blender-curriculum/repo`).
-2. Configure read-only GitHub access for that server clone (deploy key or token).
-3. Create separate content storage:
-
-```bash
-mkdir -p /srv/blender-curriculum-content/{lessons,tasks,topics}
-```
-
-4. Migrate existing content once (optional but recommended):
-
-```bash
-rsync -a /srv/blender-curriculum/repo/content/lessons/ /srv/blender-curriculum-content/lessons/
-rsync -a /srv/blender-curriculum/repo/content/tasks/ /srv/blender-curriculum-content/tasks/
-rsync -a /srv/blender-curriculum/repo/content/topics/ /srv/blender-curriculum-content/topics/
-```
-
-5. Ensure the web root exists (example: `/var/www/blender-curriculum`) and is writable by the deploy user.
-6. Install required tools on server: `git`, `node`, `npm`, `rsync`.
-7. Make deploy script executable:
-
-```bash
-chmod +x /srv/blender-curriculum/repo/ops/deploy-pull.sh
-```
-
-8. Test once manually:
-
-```bash
-REPO_DIR=/srv/blender-curriculum/repo \
-WEB_ROOT=/var/www/blender-curriculum \
-BRANCH=main \
-THEME_ROOT=/srv/blender-curriculum/repo/theme \
-CONTENT_ROOT=/srv/blender-curriculum-content \
-/srv/blender-curriculum/repo/ops/deploy-pull.sh
-```
-
-### Use a `.env` file for deployment variables
-
-If you do not want to pass variables on every run, store them in an env file on the server.
-Example: `/etc/blender-curriculum/deploy.env`
-
-```bash
-REPO_DIR=/srv/blender-curriculum/repo
-WEB_ROOT=/var/www/blender-curriculum
-BRANCH=main
-THEME_ROOT=/srv/blender-curriculum/repo/theme
-CONTENT_ROOT=/srv/blender-curriculum-content
-# Optional:
-# ADMIN_SERVICE=blender-curriculum-admin.service
-# ALLOW_DIRTY=false
-# FORCE_DEPLOY=false
-```
-
-Run deployment with:
-
-```bash
-set -a
-source /etc/blender-curriculum/deploy.env
-set +a
-/srv/blender-curriculum/repo/ops/deploy-pull.sh
-```
-
-Recommended file permissions:
-
-```bash
-sudo chmod 600 /etc/blender-curriculum/deploy.env
-```
-
-You can trigger deployment whenever you want by running `ops/deploy-pull.sh` directly (manually, webhook, or your preferred scheduler).
-
-If you keep content inside the repo (without `CONTENT_ROOT`) and need to deploy uncommitted local content, you can still use:
-
-```bash
-ALLOW_DIRTY=true FORCE_DEPLOY=true /srv/blender-curriculum/repo/ops/deploy-pull.sh
-```
+- `npm run start`: static Eleventy preview workflow.
+- `npm run admin`: admin server on local host/port.
+- `npm run start:admin`: preview + admin together.
