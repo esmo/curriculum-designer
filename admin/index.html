@@ -241,8 +241,8 @@
         return String(value || "")
           .toLowerCase()
           .trim()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
+          .replace(/[^a-z0-9_-]+/g, "-")
+          .replace(/^[-_]+|[-_]+$/g, "");
       }
 
       function sanitizeEntryType(value) {

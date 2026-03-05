@@ -53,8 +53,8 @@ function normalizeSlug(rawSlug) {
   const slug = String(rawSlug || "")
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "");
 
   return slug;
 }
