@@ -155,6 +155,12 @@ nav ul li a:hover, nav ul li.active a {
   background-color: #fff;
 }
 
+.admin-user {
+  align-self: center;
+  color: #333;
+  font-size: 0.92rem;
+}
+
 .admin-link.is-hidden {
   display: none;
 }
