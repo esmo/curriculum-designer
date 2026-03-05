@@ -1,5 +1,4 @@
 const markdownIt = require("markdown-it");
-const path = require("path");
 const youtubePlugin = require("./markdown-plugins/youtube.js");
 const { addFilters } = require("./extensions/filters.js");
 // const { addShortcodes } = require("./extensions/shortcodes.js");
@@ -26,13 +25,11 @@ module.exports = function (eleventyConfig) {
 
   eleventyConfig.setLibrary("md", markdownLib);
 
-  eleventyConfig.addPassthroughCopy(path.join(cfg.dir.input, "assets"));
+  eleventyConfig.addPassthroughCopy("assets");
   // css
-  eleventyConfig.addPassthroughCopy(path.join(cfg.dir.input, "**/*.css"));
+  eleventyConfig.addPassthroughCopy("**/*.css");
   // media
-  eleventyConfig.addPassthroughCopy(
-    path.join(cfg.dir.input, "**/*.+(png|jpg|jpeg|gif|svg|mp4|webm)")
-  );
+  eleventyConfig.addPassthroughCopy("**/*.{png,jpg,jpeg,gif,svg,mp4,webm}");
 
   addFilters(eleventyConfig);
   // addShortcodes(eleventyConfig);
