@@ -155,6 +155,40 @@ Useful options:
 - `MIGRATE_CONTENT=false`: skip initial content copy from repo to external content.
 - `OVERWRITE_ENV=true`: recreate `deploy.env` even if it already exists.
 - `INSTALL_DEPS=true`: install `git`, `rsync`, `nodejs`, `npm` via `apt-get` (root, Debian/Ubuntu).
+- `ADMIN_USER` / `ADMIN_GROUP`: user/group for the generated admin `systemd` service.
+- `ADMIN_HOST` / `ADMIN_PORT`: bind address for admin server and proxy target in generated Nginx config.
+- `SYSTEMD_UNIT_NAME`: name of generated service unit (default: `blender-curriculum-admin.service`).
+- `NGINX_SNIPPET_NAME`: name of generated Nginx snippet (default: `blender-curriculum-admin.conf`).
+- `NGINX_HTPASSWD_PATH`: htpasswd file path used in generated Nginx snippet.
+
+The installer now generates runtime config files with your configured paths/values:
+
+- `$REPO_DIR/ops/generated/$SYSTEMD_UNIT_NAME`
+- `$REPO_DIR/ops/generated/$NGINX_SNIPPET_NAME`
+
+If you run the installer as `root`, it also installs them automatically to:
+
+- `/etc/systemd/system/$SYSTEMD_UNIT_NAME`
+- `/etc/nginx/snippets/$NGINX_SNIPPET_NAME`
+
+After installation as `root`:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now blender-curriculum-admin.service # or your SYSTEMD_UNIT_NAME
+```
+
+Include the generated Nginx snippet in your server block:
+
+```nginx
+include /etc/nginx/snippets/blender-curriculum-admin.conf; # or your NGINX_SNIPPET_NAME
+```
+
+Then validate/reload Nginx:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 1. Clone this repo on the server (example: `/srv/blender-curriculum/repo`).
 2. Configure read-only GitHub access for that server clone (deploy key or token).
@@ -203,7 +237,7 @@ BRANCH=main
 THEME_ROOT=/srv/blender-curriculum/repo/theme
 CONTENT_ROOT=/srv/blender-curriculum-content
 # Optional:
-# ADMIN_SERVICE=blender-curriculum-admin
+# ADMIN_SERVICE=blender-curriculum-admin.service
 # ALLOW_DIRTY=false
 # FORCE_DEPLOY=false
 ```
