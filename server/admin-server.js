@@ -174,21 +174,142 @@ function ensureValidSchemaField(field, fieldIndex, sourcePath) {
   };
 }
 
-function parseSchemaMarkdown(markdown, sourcePath) {
-  const jsonBlockMatch = markdown.match(/```json\s*([\s\S]*?)\s*```/i);
-  if (!jsonBlockMatch) {
-    throw new Error(`Schema file ${sourcePath} has no JSON code block.`);
+function parseYamlScalar(value) {
+  const text = String(value || "").trim();
+  if (text === "") {
+    return "";
   }
 
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonBlockMatch[1]);
-  } catch (error) {
-    throw new Error(`Schema JSON in ${sourcePath} is invalid: ${error.message}`);
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    const quote = text[0];
+    const inner = text.slice(1, -1);
+    if (quote === '"') {
+      return inner
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, "\\")
+        .replace(/\\n/g, "\n");
+    }
+    return inner.replace(/''/g, "'");
   }
+
+  if (text === "true") return true;
+  if (text === "false") return false;
+  if (text === "null" || text === "~") return null;
+  if (/^-?\d+(\.\d+)?$/.test(text)) {
+    return Number(text);
+  }
+
+  return text;
+}
+
+function parseYamlDocument(source, sourcePath) {
+  const root = {};
+  const stack = [{ type: "object", value: root, indent: -1, pendingKey: null }];
+  const lines = source.split(/\r?\n/);
+
+  for (const rawLine of lines) {
+    if (!rawLine.trim() || rawLine.trim().startsWith("#")) {
+      continue;
+    }
+
+    const leading = rawLine.match(/^ */)?.[0] ?? "";
+    if (rawLine.startsWith("\t")) {
+      throw new Error(`Tabs are not supported in YAML: ${sourcePath}`);
+    }
+
+    const indent = leading.length;
+    if (indent % 2 !== 0) {
+      throw new Error(
+        `Invalid indentation in ${sourcePath}. Use multiples of 2 spaces.`
+      );
+    }
+
+    const content = rawLine.slice(indent);
+
+    while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
+      stack.pop();
+    }
+
+    let frame = stack[stack.length - 1];
+    if (frame.type === "object" && frame.pendingKey) {
+      const key = frame.pendingKey;
+      const child = content.startsWith("- ") ? [] : {};
+      frame.value[key] = child;
+      frame.pendingKey = null;
+      frame = {
+        type: Array.isArray(child) ? "array" : "object",
+        value: child,
+        indent: indent - 1,
+        pendingKey: null,
+      };
+      stack.push(frame);
+    }
+
+    if (content.startsWith("- ")) {
+      if (frame.type !== "array") {
+        throw new Error(`Unexpected list item in ${sourcePath}: "${content}"`);
+      }
+
+      const item = content.slice(2).trim();
+      if (!item) {
+        const obj = {};
+        frame.value.push(obj);
+        stack.push({ type: "object", value: obj, indent, pendingKey: null });
+        continue;
+      }
+
+      const colonIndex = item.indexOf(":");
+      if (colonIndex > 0) {
+        const key = item.slice(0, colonIndex).trim();
+        const remainder = item.slice(colonIndex + 1).trim();
+        const obj = {};
+        frame.value.push(obj);
+        const objFrame = { type: "object", value: obj, indent, pendingKey: null };
+        stack.push(objFrame);
+        if (remainder) {
+          obj[key] = parseYamlScalar(remainder);
+        } else {
+          objFrame.pendingKey = key;
+        }
+        continue;
+      }
+
+      frame.value.push(parseYamlScalar(item));
+      continue;
+    }
+
+    const colonIndex = content.indexOf(":");
+    if (colonIndex <= 0 || frame.type !== "object") {
+      throw new Error(`Invalid YAML line in ${sourcePath}: "${content}"`);
+    }
+
+    const key = content.slice(0, colonIndex).trim();
+    const remainder = content.slice(colonIndex + 1).trim();
+    if (remainder) {
+      frame.value[key] = parseYamlScalar(remainder);
+    } else {
+      frame.pendingKey = key;
+    }
+  }
+
+  for (const frame of stack) {
+    if (frame.type === "object" && frame.pendingKey) {
+      frame.value[frame.pendingKey] = {};
+      frame.pendingKey = null;
+    }
+  }
+
+  return root;
+}
+
+function parseSchemaYaml(yamlText, sourcePath) {
+  const parsed = parseYamlDocument(yamlText, sourcePath);
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`Schema in ${sourcePath} must be a JSON object.`);
+    throw new Error(`Schema in ${sourcePath} must be a YAML object.`);
   }
 
   const id = sanitizeEntryType(parsed.id);
@@ -256,20 +377,24 @@ async function loadEntrySchemas() {
     withFileTypes: true,
   });
 
-  const markdownEntries = dirEntries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+  const schemaEntries = dirEntries
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        (entry.name.endsWith(".yml") || entry.name.endsWith(".yaml"))
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  if (markdownEntries.length === 0) {
+  if (schemaEntries.length === 0) {
     throw new Error(`No schema files found in ${SCHEMA_ROOT}.`);
   }
 
   const schemaMap = new Map();
 
-  for (const entry of markdownEntries) {
+  for (const entry of schemaEntries) {
     const schemaPath = path.join(SCHEMA_ROOT, entry.name);
-    const markdown = await fs.readFile(schemaPath, "utf8");
-    const schema = parseSchemaMarkdown(markdown, schemaPath);
+    const yamlText = await fs.readFile(schemaPath, "utf8");
+    const schema = parseSchemaYaml(yamlText, schemaPath);
 
     if (schemaMap.has(schema.id)) {
       throw new Error(
@@ -335,6 +460,32 @@ function buildViewUrl(viewBasePath, slug) {
   return `${normalizeBasePath(viewBasePath)}/${slug}/`;
 }
 
+function extractFrontmatterMetadata(markdown) {
+  const result = {};
+  const match = String(markdown || "").match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) {
+    return result;
+  }
+
+  const lines = match[1].split(/\r?\n/);
+  for (const line of lines) {
+    const entry = line.match(/^([A-Za-z0-9_]+)\s*:\s*(.*)$/);
+    if (!entry) {
+      continue;
+    }
+
+    const key = entry[1];
+    if (key !== "created_by" && key !== "created_at") {
+      continue;
+    }
+
+    const parsed = parseYamlScalar(entry[2]);
+    result[key] = parsed === null || parsed === undefined ? "" : String(parsed);
+  }
+
+  return result;
+}
+
 function toMarkdownDocument(input) {
   const lines = ["---"];
 
@@ -361,6 +512,8 @@ function toMarkdownDocument(input) {
   }
 
   lines.push(`type: ${yamlString(input.schema.typeValue)}`);
+  lines.push(`created_by: ${yamlString(input.createdBy)}`);
+  lines.push(`created_at: ${yamlString(input.createdAt)}`);
   lines.push(`updated_by: ${yamlString(input.updatedBy)}`);
   lines.push(`updated_at: ${yamlString(input.updatedAt)}`);
   lines.push("---", "");
@@ -586,29 +739,44 @@ app.post(
         return;
       }
 
+      let fileExists = false;
+      let existingMetadata = {};
+      try {
+        const existingContent = await fs.readFile(filePath, "utf8");
+        fileExists = true;
+        existingMetadata = extractFrontmatterMetadata(existingContent);
+      } catch (error) {
+        if (!error || error.code !== "ENOENT") {
+          throw error;
+        }
+      }
+
+      if (fileExists && !payload.overwrite) {
+        reply.code(409).send({
+          error: "A file with this slug already exists. Enable overwrite to replace it.",
+          file: path.relative(ROOT_DIR, filePath),
+        });
+        return;
+      }
+
       const updatedBy = sanitizeSingleLine(request.headers["x-remote-user"]) || "local-admin";
       const updatedAt = new Date().toISOString();
+      const createdBy = fileExists
+        ? sanitizeSingleLine(existingMetadata.created_by) || updatedBy
+        : updatedBy;
+      const createdAt = fileExists
+        ? sanitizeSingleLine(existingMetadata.created_at) || updatedAt
+        : updatedAt;
 
       values.slug = slug;
       const markdown = toMarkdownDocument({
         schema,
         values,
+        createdBy,
+        createdAt,
         updatedBy,
         updatedAt,
       });
-
-      try {
-        if (!payload.overwrite) {
-          await fs.access(filePath);
-          reply.code(409).send({
-            error: "A file with this slug already exists. Enable overwrite to replace it.",
-            file: path.relative(ROOT_DIR, filePath),
-          });
-          return;
-        }
-      } catch {
-        // File does not exist, continue.
-      }
 
       await fs.mkdir(schema.dir, { recursive: true });
       await fs.writeFile(filePath, markdown, "utf8");
@@ -622,7 +790,10 @@ app.post(
         ok: true,
         file: path.relative(ROOT_DIR, filePath),
         build,
+        deployOk,
         viewUrl,
+        createdBy,
+        createdAt,
         updatedBy,
         updatedAt,
       });

@@ -194,7 +194,7 @@
               <select id="entry-type" name="entryType" required></select>
             </label>
 
-            <p class="hint">Felder werden aus den Markdown-Schemata geladen.</p>
+            <p class="hint">Felder werden aus YAML-Schemata geladen.</p>
           </div>
 
           <div id="fields-root" class="fields-grid"></div>
@@ -446,8 +446,14 @@
             buildText = "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
           }
 
-          setStatus(`Gespeichert: ${data.file}. ${buildText} Weiterleitung...`, statusType);
-          if (data.viewUrl) {
+          const shouldRedirect = data.deployOk === true;
+          if (shouldRedirect) {
+            setStatus(`Gespeichert: ${data.file}. ${buildText} Weiterleitung...`, statusType);
+          } else {
+            setStatus(`Gespeichert: ${data.file}. ${buildText}`, statusType);
+          }
+
+          if (shouldRedirect && data.viewUrl) {
             setTimeout(() => {
               window.location.assign(data.viewUrl);
             }, 300);

@@ -172,32 +172,39 @@ Admin save behavior:
 - writes Markdown into `content/` or `BLENDER_CURRICULUM_CONTENT_ROOT`
 - runs `npm run build`
 - if `BLENDER_CURRICULUM_WEB_ROOT` is set, syncs `build/` to web root via `rsync`
-- writes `updated_by` and `updated_at` on every save
-- redirects to the saved page after a successful save
+- writes `created_by`/`created_at` on create and keeps them on update
+- writes `updated_by`/`updated_at` on every save
+- redirects to the saved page after successful save + build (and sync, if enabled)
 
 ## Admin Schemas
 
-Admin forms are defined via Markdown schema files in:
+Admin forms are defined via YAML schema files in:
 
 - default: `admin/schemas/`
 - optional override: `BLENDER_CURRICULUM_SCHEMA_ROOT`
 
-Each schema file contains a JSON code block.
+Supported schema files use `.yml` or `.yaml`.
 Example:
 
-```json
-{
-  "id": "lesson",
-  "label": "Lesson",
-  "typeValue": "Lesson",
-  "outputDir": "lessons",
-  "viewBasePath": "/lessons",
-  "fields": [
-    { "name": "track", "label": "Track", "input": "text", "required": true },
-    { "name": "title", "label": "Titel", "input": "text", "required": true },
-    { "name": "description", "label": "Beschreibung", "input": "textarea", "required": true }
-  ]
-}
+```yaml
+id: lesson
+label: Lesson
+typeValue: Lesson
+outputDir: lessons
+viewBasePath: /lessons
+fields:
+  - name: track
+    label: Track
+    input: text
+    required: true
+  - name: title
+    label: Titel
+    input: text
+    required: true
+  - name: description
+    label: Beschreibung
+    input: textarea
+    required: true
 ```
 
 Notes:
@@ -206,6 +213,7 @@ Notes:
 - `title`, `track`, and `description` are required by the server.
 - `slug` is optional and auto-generated from `title` if empty.
 - `content` is written as Markdown body, all other fields go to frontmatter.
+- use spaces (no tabs) and 2-space indentation in schema YAML files.
 
 ## Nginx and Basic Auth
 
