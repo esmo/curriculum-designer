@@ -99,6 +99,60 @@ function sanitizeEntryType(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+function parseYamlInlineArray(text) {
+  const inner = text.slice(1, -1).trim();
+  if (!inner) {
+    return [];
+  }
+
+  const parts = [];
+  let token = "";
+  let quote = "";
+  let escaped = false;
+
+  for (const char of inner) {
+    if (escaped) {
+      token += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      token += char;
+      escaped = true;
+      continue;
+    }
+
+    if ((char === '"' || char === "'") && !quote) {
+      quote = char;
+      token += char;
+      continue;
+    }
+
+    if (char === quote) {
+      quote = "";
+      token += char;
+      continue;
+    }
+
+    if (char === "," && !quote) {
+      if (token.trim()) {
+        parts.push(token.trim());
+      }
+      token = "";
+      continue;
+    }
+
+    token += char;
+  }
+
+  if (token.trim()) {
+    parts.push(token.trim());
+  }
+
+  return parts.map((part) => parseYamlScalar(part));
+}
+
 function ensureValidSchemaField(field, fieldIndex, sourcePath) {
   if (!field || typeof field !== "object" || Array.isArray(field)) {
     throw new Error(`Invalid field definition at index ${fieldIndex} in ${sourcePath}.`);
@@ -180,6 +234,10 @@ function parseYamlScalar(value) {
     return "";
   }
 
+  if (text.startsWith("[") && text.endsWith("]")) {
+    return parseYamlInlineArray(text);
+  }
+
   if (
     (text.startsWith('"') && text.endsWith('"')) ||
     (text.startsWith("'") && text.endsWith("'"))
@@ -203,6 +261,28 @@ function parseYamlScalar(value) {
   }
 
   return text;
+}
+
+function parseMarkdownDocument(markdown, sourcePath) {
+  const text = String(markdown || "");
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+
+  if (!match) {
+    return {
+      frontmatter: {},
+      body: text.trimEnd(),
+    };
+  }
+
+  const frontmatter = parseYamlDocument(match[1], sourcePath);
+  if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
+    throw new Error(`Frontmatter in ${sourcePath} must be a YAML object.`);
+  }
+
+  return {
+    frontmatter,
+    body: text.slice(match[0].length).trimEnd(),
+  };
 }
 
 function parseYamlDocument(source, sourcePath) {
@@ -460,6 +540,10 @@ function buildViewUrl(viewBasePath, slug) {
   return `${normalizeBasePath(viewBasePath)}/${slug}/`;
 }
 
+function buildListUrl(viewBasePath) {
+  return `${normalizeBasePath(viewBasePath)}/`;
+}
+
 function extractFrontmatterMetadata(markdown) {
   const result = {};
   const match = String(markdown || "").match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -484,6 +568,30 @@ function extractFrontmatterMetadata(markdown) {
   }
 
   return result;
+}
+
+function frontmatterFieldValueForForm(field, frontmatter, body) {
+  if (field.name === "content") {
+    return body;
+  }
+
+  const raw = frontmatter[field.name];
+  if (raw === null || raw === undefined) {
+    return "";
+  }
+
+  if (field.input === "tags") {
+    if (Array.isArray(raw)) {
+      return raw.map((item) => sanitizeSingleLine(item)).filter(Boolean).join(", ");
+    }
+    return sanitizeSingleLine(raw);
+  }
+
+  if (field.input === "number") {
+    return String(raw);
+  }
+
+  return String(raw);
 }
 
 function toMarkdownDocument(input) {
@@ -681,6 +789,84 @@ app.get("/admin-api/schemas", { preHandler: requireProxyAuth }, async () => ({
   schemas: Array.from(entrySchemasByType.values()).map(publicSchema),
 }));
 
+app.get(
+  "/admin-api/entries/:entryType/:slug",
+  {
+    preHandler: requireProxyAuth,
+  },
+  async (request, reply) => {
+    try {
+      const params = request.params || {};
+      const entryType = sanitizeEntryType(params.entryType);
+      const schema = entrySchemasByType.get(entryType);
+      if (!schema) {
+        reply.code(400).send({
+          error: `Unknown entryType "${entryType}".`,
+        });
+        return;
+      }
+
+      const slug = normalizeSlug(params.slug);
+      if (!slug) {
+        reply.code(400).send({
+          error: "A valid slug is required.",
+        });
+        return;
+      }
+
+      const filePath = path.resolve(schema.dir, `${slug}.md`);
+      if (!filePath.startsWith(`${schema.dir}${path.sep}`)) {
+        reply.code(400).send({
+          error: "Invalid slug.",
+        });
+        return;
+      }
+
+      let markdown = "";
+      try {
+        markdown = await fs.readFile(filePath, "utf8");
+      } catch (error) {
+        if (error && error.code === "ENOENT") {
+          reply.code(404).send({
+            error: "Entry not found.",
+          });
+          return;
+        }
+        throw error;
+      }
+
+      const parsed = parseMarkdownDocument(markdown, filePath);
+      const fields = {};
+      for (const field of schema.fields) {
+        fields[field.name] = frontmatterFieldValueForForm(
+          field,
+          parsed.frontmatter,
+          parsed.body
+        );
+      }
+
+      reply.send({
+        ok: true,
+        entryType: schema.id,
+        slug,
+        fields,
+        file: path.relative(ROOT_DIR, filePath),
+        viewUrl: buildViewUrl(schema.viewBasePath, slug),
+        metadata: {
+          createdBy: sanitizeSingleLine(parsed.frontmatter.created_by),
+          createdAt: sanitizeSingleLine(parsed.frontmatter.created_at),
+          updatedBy: sanitizeSingleLine(parsed.frontmatter.updated_by),
+          updatedAt: sanitizeSingleLine(parsed.frontmatter.updated_at),
+        },
+      });
+    } catch (error) {
+      reply.code(400).send({
+        error: error.message,
+      });
+    }
+  }
+);
+
 app.post(
   "/admin-api/entries",
   {
@@ -796,6 +982,70 @@ app.post(
         createdAt,
         updatedBy,
         updatedAt,
+      });
+    } catch (error) {
+      reply.code(400).send({
+        error: error.message,
+      });
+    }
+  }
+);
+
+app.delete(
+  "/admin-api/entries/:entryType/:slug",
+  {
+    preHandler: requireProxyAuth,
+  },
+  async (request, reply) => {
+    try {
+      const params = request.params || {};
+      const entryType = sanitizeEntryType(params.entryType);
+      const schema = entrySchemasByType.get(entryType);
+      if (!schema) {
+        reply.code(400).send({
+          error: `Unknown entryType "${entryType}".`,
+        });
+        return;
+      }
+
+      const slug = normalizeSlug(params.slug);
+      if (!slug) {
+        reply.code(400).send({
+          error: "A valid slug is required.",
+        });
+        return;
+      }
+
+      const filePath = path.resolve(schema.dir, `${slug}.md`);
+      if (!filePath.startsWith(`${schema.dir}${path.sep}`)) {
+        reply.code(400).send({
+          error: "Invalid slug.",
+        });
+        return;
+      }
+
+      try {
+        await fs.unlink(filePath);
+      } catch (error) {
+        if (error && error.code === "ENOENT") {
+          reply.code(404).send({
+            error: "Entry not found.",
+          });
+          return;
+        }
+        throw error;
+      }
+
+      const build = await enqueueBuild();
+      const deployOk = build.ok && (build.sync ? build.sync.ok : true);
+      const statusCode = deployOk ? 200 : 202;
+
+      reply.code(statusCode).send({
+        ok: true,
+        file: path.relative(ROOT_DIR, filePath),
+        build,
+        deployOk,
+        listUrl: buildListUrl(schema.viewBasePath),
       });
     } catch (error) {
       reply.code(400).send({

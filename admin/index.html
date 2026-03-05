@@ -136,6 +136,10 @@
         gap: 0.8rem;
       }
 
+      .actions button.danger {
+        background: var(--danger);
+      }
+
       .status {
         min-height: 1.5rem;
         font-size: 0.92rem;
@@ -206,6 +210,7 @@
 
           <div class="actions">
             <button id="submit-btn" type="submit">Speichern</button>
+            <button id="delete-btn" class="danger" type="button" hidden>Loeschen</button>
             <div id="status" class="status"></div>
           </div>
         </form>
@@ -216,8 +221,18 @@
       const form = document.getElementById("entry-form");
       const statusEl = document.getElementById("status");
       const submitBtn = document.getElementById("submit-btn");
+      const deleteBtn = document.getElementById("delete-btn");
       const entryTypeSelect = document.getElementById("entry-type");
       const fieldsRoot = document.getElementById("fields-root");
+      const overwriteCheckbox = form.querySelector('input[name="overwrite"]');
+      const overwriteLabel = overwriteCheckbox?.closest(".checkbox");
+      const urlParams = new URLSearchParams(window.location.search);
+      const requestedEntryType = sanitizeEntryType(urlParams.get("entryType"));
+      const requestedSlug = slugify(urlParams.get("slug"));
+      const isEditMode = Boolean(requestedEntryType && requestedSlug);
+      const editTarget = isEditMode
+        ? { entryType: requestedEntryType, slug: requestedSlug }
+        : null;
       let slugWasEdited = false;
       let schemaMap = new Map();
       let currentSchema = null;
@@ -227,6 +242,14 @@
           .toLowerCase()
           .trim()
           .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
+
+      function sanitizeEntryType(value) {
+        return String(value || "")
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9_-]+/g, "-")
           .replace(/^-+|-+$/g, "");
       }
 
@@ -311,6 +334,11 @@
       }
 
       function connectSlugAutofill() {
+        if (isEditMode) {
+          slugWasEdited = true;
+          return;
+        }
+
         slugWasEdited = false;
         const titleInput = getFieldElement("title");
         const slugInput = getFieldElement("slug");
@@ -336,6 +364,83 @@
           fieldsRoot.appendChild(createField(field));
         }
         connectSlugAutofill();
+      }
+
+      function applyFieldValues(values) {
+        for (const field of currentSchema?.fields || []) {
+          const input = getFieldElement(field.name);
+          if (!input) {
+            continue;
+          }
+
+          const value = values[field.name];
+          input.value = value === null || value === undefined ? "" : String(value);
+        }
+      }
+
+      function buildDeployMessage(data, mode) {
+        const sync = data.build?.sync;
+        let buildText = "Build erfolgreich.";
+        let statusType = "success";
+
+        if (!data.build?.ok) {
+          buildText = `${mode} gespeichert, Build fehlgeschlagen.`;
+          statusType = "error";
+        } else if (sync && !sync.ok && !sync.skipped) {
+          buildText =
+            "Build erfolgreich, Sync nach BLENDER_CURRICULUM_WEB_ROOT fehlgeschlagen.";
+          statusType = "error";
+        } else if (sync && sync.ok && !sync.skipped) {
+          buildText = "Build und Sync erfolgreich.";
+        } else if (sync && sync.skipped) {
+          buildText =
+            "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
+        }
+
+        return {
+          text: buildText,
+          statusType,
+        };
+      }
+
+      async function loadEntryForEdit(entryType, slug) {
+        const response = await fetch(
+          `/admin-api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(slug)}`
+        );
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "Eintrag konnte nicht geladen werden.");
+        }
+
+        if (!schemaMap.has(data.entryType)) {
+          throw new Error(`Schema "${data.entryType}" ist nicht verfuegbar.`);
+        }
+
+        if (entryTypeSelect.value !== data.entryType) {
+          entryTypeSelect.value = data.entryType;
+          renderSchema(schemaMap.get(data.entryType));
+        }
+
+        applyFieldValues(data.fields || {});
+
+        const slugInput = getFieldElement("slug");
+        if (slugInput) {
+          slugInput.value = data.slug || slug;
+          slugInput.readOnly = true;
+        }
+
+        submitBtn.textContent = "Speichern";
+        if (overwriteCheckbox) {
+          overwriteCheckbox.checked = true;
+        }
+        if (overwriteLabel) {
+          overwriteLabel.hidden = true;
+        }
+
+        entryTypeSelect.disabled = true;
+        deleteBtn.hidden = false;
+        setStatus(`Bearbeite: ${data.file}`, null);
       }
 
       async function loadSchemas() {
@@ -394,15 +499,26 @@
           }
         }
 
-        const fd = new FormData(form);
+        if (isEditMode && editTarget) {
+          fields.slug = editTarget.slug;
+        }
+
+        const overwrite = isEditMode
+          ? true
+          : new FormData(form).get("overwrite") === "on";
+
         return {
           entryType: entryTypeSelect.value,
           fields,
-          overwrite: fd.get("overwrite") === "on",
+          overwrite,
         };
       }
 
       entryTypeSelect.addEventListener("change", () => {
+        if (isEditMode) {
+          return;
+        }
+
         const schema = schemaMap.get(entryTypeSelect.value);
         if (schema) {
           renderSchema(schema);
@@ -430,27 +546,22 @@
             throw new Error(data.error || "Unbekannter Fehler");
           }
 
-          const sync = data.build?.sync;
-          let buildText = "Build erfolgreich.";
-          let statusType = "success";
-
-          if (!data.build?.ok) {
-            buildText = "Eintrag gespeichert, Build fehlgeschlagen.";
-            statusType = "error";
-          } else if (sync && !sync.ok && !sync.skipped) {
-            buildText = "Build erfolgreich, Sync nach BLENDER_CURRICULUM_WEB_ROOT fehlgeschlagen.";
-            statusType = "error";
-          } else if (sync && sync.ok && !sync.skipped) {
-            buildText = "Build und Sync erfolgreich.";
-          } else if (sync && sync.skipped) {
-            buildText = "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
-          }
+          const deployMessage = buildDeployMessage(
+            data,
+            isEditMode ? "Eintrag" : "Eintrag"
+          );
 
           const shouldRedirect = data.deployOk === true;
           if (shouldRedirect) {
-            setStatus(`Gespeichert: ${data.file}. ${buildText} Weiterleitung...`, statusType);
+            setStatus(
+              `Gespeichert: ${data.file}. ${deployMessage.text} Weiterleitung...`,
+              deployMessage.statusType
+            );
           } else {
-            setStatus(`Gespeichert: ${data.file}. ${buildText}`, statusType);
+            setStatus(
+              `Gespeichert: ${data.file}. ${deployMessage.text}`,
+              deployMessage.statusType
+            );
           }
 
           if (shouldRedirect && data.viewUrl) {
@@ -465,9 +576,82 @@
         }
       });
 
-      loadSchemas().catch((error) => {
-        setStatus(error.message, "error");
+      deleteBtn.addEventListener("click", async () => {
+        if (!isEditMode || !editTarget) {
+          return;
+        }
+
+        const confirmed = window.confirm(
+          `Eintrag "${editTarget.slug}" wirklich loeschen?`
+        );
+        if (!confirmed) {
+          return;
+        }
+
+        setStatus("Loesche...", null);
+        submitBtn.disabled = true;
+        deleteBtn.disabled = true;
+
+        try {
+          const response = await fetch(
+            `/admin-api/entries/${encodeURIComponent(editTarget.entryType)}/${encodeURIComponent(editTarget.slug)}`,
+            {
+              method: "DELETE",
+            }
+          );
+          const data = await response.json();
+
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || "Loeschen fehlgeschlagen.");
+          }
+
+          const deployMessage = buildDeployMessage(data, "Eintrag");
+          const shouldRedirect = data.deployOk === true;
+
+          if (shouldRedirect) {
+            setStatus(
+              `Geloescht: ${data.file}. ${deployMessage.text} Weiterleitung...`,
+              deployMessage.statusType
+            );
+          } else {
+            setStatus(
+              `Geloescht: ${data.file}. ${deployMessage.text}`,
+              deployMessage.statusType
+            );
+          }
+
+          if (shouldRedirect && data.listUrl) {
+            setTimeout(() => {
+              window.location.assign(data.listUrl);
+            }, 300);
+          }
+        } catch (error) {
+          setStatus(error.message, "error");
+        } finally {
+          submitBtn.disabled = false;
+          deleteBtn.disabled = false;
+        }
       });
+
+      loadSchemas()
+        .then(async () => {
+          if (!isEditMode || !editTarget) {
+            return;
+          }
+
+          if (!schemaMap.has(editTarget.entryType)) {
+            throw new Error(
+              `Unbekannter entryType "${editTarget.entryType}" in der URL.`
+            );
+          }
+
+          entryTypeSelect.value = editTarget.entryType;
+          renderSchema(schemaMap.get(editTarget.entryType));
+          await loadEntryForEdit(editTarget.entryType, editTarget.slug);
+        })
+        .catch((error) => {
+          setStatus(error.message, "error");
+        });
     </script>
   </body>
 </html>
