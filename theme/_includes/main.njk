@@ -24,21 +24,37 @@
     <script>
       (() => {
         const userNameEl = document.querySelector("[data-user-name]");
-        if (userNameEl) {
-          const userName = String(window.currentUser?.name || "").trim();
-          if (userName) {
-            userNameEl.textContent = userName;
+        const editLink = document.querySelector("[data-admin-edit-link]");
+
+        function setUserName(name) {
+          if (!userNameEl) {
+            return;
           }
+
+          const normalizedName = String(name || "").trim();
+          userNameEl.textContent = normalizedName || "Gast";
         }
 
-        const editLink = document.querySelector("[data-admin-edit-link]");
-        if (!editLink) {
-          return;
-        }
+        setUserName(window.currentUser?.name);
 
         fetch("/admin-api/health", { credentials: "same-origin" })
-          .then((response) => {
-            if (response.ok) {
+          .then(async (response) => {
+            if (!response.ok) {
+              return;
+            }
+
+            let payload = null;
+            try {
+              payload = await response.json();
+            } catch (_) {
+              payload = null;
+            }
+
+            if (payload?.user?.name) {
+              setUserName(payload.user.name);
+            }
+
+            if (editLink) {
               editLink.classList.remove("is-hidden");
             }
           })

@@ -769,6 +769,10 @@ function requireProxyAuth(request, reply, done) {
   done();
 }
 
+function requestRemoteUser(request) {
+  return sanitizeSingleLine(request.headers["x-remote-user"]);
+}
+
 app.register(fastifyStatic, {
   root: ADMIN_DIR,
   prefix: "/admin/",
@@ -779,8 +783,11 @@ app.get("/admin", async (_, reply) => {
   reply.redirect("/admin/");
 });
 
-app.get("/admin-api/health", { preHandler: requireProxyAuth }, async () => ({
+app.get("/admin-api/health", { preHandler: requireProxyAuth }, async (request) => ({
   ok: true,
+  user: {
+    name: requestRemoteUser(request) || "",
+  },
 }));
 
 app.get("/admin-api/schemas", { preHandler: requireProxyAuth }, async () => ({
