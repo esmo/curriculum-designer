@@ -20,6 +20,18 @@ SYSTEMD_UNIT_NAME="${BLENDER_CURRICULUM_SYSTEMD_UNIT_NAME:-blender-curriculum-ad
 NGINX_SNIPPET_NAME="${BLENDER_CURRICULUM_NGINX_SNIPPET_NAME:-blender-curriculum-admin.conf}"
 NGINX_HTPASSWD_PATH="${BLENDER_CURRICULUM_NGINX_HTPASSWD_PATH:-/etc/nginx/.htpasswd}"
 
+# Keep explicit env var values as highest-priority prompt defaults.
+ENV_PREFILL_REPO_DIR="$REPO_DIR"
+ENV_PREFILL_WEB_ROOT="$WEB_ROOT"
+ENV_PREFILL_BRANCH="$BRANCH"
+ENV_PREFILL_THEME_ROOT="$THEME_ROOT"
+ENV_PREFILL_CONTENT_ROOT="$CONTENT_ROOT"
+ENV_PREFILL_ENV_FILE="$ENV_FILE"
+ENV_PREFILL_ADMIN_USER="$ADMIN_USER"
+ENV_PREFILL_ADMIN_GROUP="$ADMIN_GROUP"
+ENV_PREFILL_ADMIN_HOST="$ADMIN_HOST"
+ENV_PREFILL_ADMIN_PORT="$ADMIN_PORT"
+
 log() {
   printf '[install] %s\n' "$1"
 }
@@ -44,24 +56,64 @@ default_service_user() {
   id -un
 }
 
-prompt_if_unset() {
-  local name="$1"
-  local label="$2"
-  local default_value="$3"
-  local current_value="${!name-}"
-  local input_value
-
-  if [ -n "$current_value" ]; then
+load_existing_env_defaults() {
+  if [ ! -f "$ENV_FILE" ]; then
     return
   fi
 
+  log "Loading existing defaults from: $ENV_FILE"
+  # shellcheck disable=SC1090
+  set -a
+  source "$ENV_FILE"
+  set +a
+
+  REPO_DIR="${REPO_DIR:-${BLENDER_CURRICULUM_REPO_DIR:-}}"
+  WEB_ROOT="${WEB_ROOT:-${BLENDER_CURRICULUM_WEB_ROOT:-}}"
+  BRANCH="${BRANCH:-${BLENDER_CURRICULUM_BRANCH:-}}"
+  THEME_ROOT="${THEME_ROOT:-${BLENDER_CURRICULUM_THEME_ROOT:-}}"
+  CONTENT_ROOT="${CONTENT_ROOT:-${BLENDER_CURRICULUM_CONTENT_ROOT:-}}"
+  ADMIN_USER="${ADMIN_USER:-${BLENDER_CURRICULUM_ADMIN_USER:-}}"
+  ADMIN_GROUP="${ADMIN_GROUP:-${BLENDER_CURRICULUM_ADMIN_GROUP:-}}"
+  ADMIN_HOST="${ADMIN_HOST:-${BLENDER_CURRICULUM_ADMIN_HOST:-}}"
+  ADMIN_PORT="${ADMIN_PORT:-${BLENDER_CURRICULUM_ADMIN_PORT:-}}"
+  ADMIN_SERVICE="${ADMIN_SERVICE:-${BLENDER_CURRICULUM_ADMIN_SERVICE:-}}"
+
+  # Explicit environment values always win over values loaded from ENV_FILE.
+  REPO_DIR="${ENV_PREFILL_REPO_DIR:-$REPO_DIR}"
+  WEB_ROOT="${ENV_PREFILL_WEB_ROOT:-$WEB_ROOT}"
+  BRANCH="${ENV_PREFILL_BRANCH:-$BRANCH}"
+  THEME_ROOT="${ENV_PREFILL_THEME_ROOT:-$THEME_ROOT}"
+  CONTENT_ROOT="${ENV_PREFILL_CONTENT_ROOT:-$CONTENT_ROOT}"
+  ENV_FILE="${ENV_PREFILL_ENV_FILE:-$ENV_FILE}"
+  ADMIN_USER="${ENV_PREFILL_ADMIN_USER:-$ADMIN_USER}"
+  ADMIN_GROUP="${ENV_PREFILL_ADMIN_GROUP:-$ADMIN_GROUP}"
+  ADMIN_HOST="${ENV_PREFILL_ADMIN_HOST:-$ADMIN_HOST}"
+  ADMIN_PORT="${ENV_PREFILL_ADMIN_PORT:-$ADMIN_PORT}"
+}
+
+prompt_with_prefill() {
+  local name="$1"
+  local label="$2"
+  local fallback_default="$3"
+  local current_value="${!name-}"
+  local prefill="$current_value"
+  local input_value
+
+  if [ -z "$prefill" ]; then
+    prefill="$fallback_default"
+  fi
+
   if [ ! -t 0 ]; then
+    if [ -n "$prefill" ]; then
+      printf -v "$name" '%s' "$prefill"
+      return
+    fi
     fail "$name is not set and no interactive terminal is available."
   fi
 
-  if [ -n "$default_value" ]; then
-    read -r -p "$label [$default_value]: " input_value
-    input_value="${input_value:-$default_value}"
+  if [ -n "$prefill" ]; then
+    read -r -p "$label [$prefill]: " input_value
+    input_value="${input_value:-$prefill}"
   else
     read -r -p "$label: " input_value
   fi
@@ -74,16 +126,18 @@ prompt_if_unset() {
 }
 
 collect_configuration() {
-  prompt_if_unset REPO_DIR "Repository path (BLENDER_CURRICULUM_REPO_DIR)" "/srv/blender-curriculum/repo"
-  prompt_if_unset WEB_ROOT "Web root path (BLENDER_CURRICULUM_WEB_ROOT)" "/var/www/blender-curriculum"
-  prompt_if_unset BRANCH "Git branch (BLENDER_CURRICULUM_BRANCH)" "main"
-  prompt_if_unset THEME_ROOT "Theme root path (BLENDER_CURRICULUM_THEME_ROOT)" "$REPO_DIR/theme"
-  prompt_if_unset CONTENT_ROOT "Content root path (BLENDER_CURRICULUM_CONTENT_ROOT)" "/srv/blender-curriculum-content"
-  prompt_if_unset ENV_FILE "Env file path (BLENDER_CURRICULUM_ENV_FILE)" "/etc/blender-curriculum/deploy.env"
-  prompt_if_unset ADMIN_USER "Admin service user (BLENDER_CURRICULUM_ADMIN_USER)" "$(default_service_user)"
-  prompt_if_unset ADMIN_GROUP "Admin service group (BLENDER_CURRICULUM_ADMIN_GROUP)" "$ADMIN_USER"
-  prompt_if_unset ADMIN_HOST "Admin bind host (BLENDER_CURRICULUM_ADMIN_HOST)" "127.0.0.1"
-  prompt_if_unset ADMIN_PORT "Admin bind port (BLENDER_CURRICULUM_ADMIN_PORT)" "8787"
+  prompt_with_prefill ENV_FILE "Env file path (BLENDER_CURRICULUM_ENV_FILE)" "/etc/blender-curriculum/deploy.env"
+  load_existing_env_defaults
+
+  prompt_with_prefill REPO_DIR "Repository path (BLENDER_CURRICULUM_REPO_DIR)" "/srv/blender-curriculum/repo"
+  prompt_with_prefill WEB_ROOT "Web root path (BLENDER_CURRICULUM_WEB_ROOT)" "/var/www/blender-curriculum"
+  prompt_with_prefill BRANCH "Git branch (BLENDER_CURRICULUM_BRANCH)" "main"
+  prompt_with_prefill THEME_ROOT "Theme root path (BLENDER_CURRICULUM_THEME_ROOT)" "$REPO_DIR/theme"
+  prompt_with_prefill CONTENT_ROOT "Content root path (BLENDER_CURRICULUM_CONTENT_ROOT)" "/srv/blender-curriculum-content"
+  prompt_with_prefill ADMIN_USER "Admin service user (BLENDER_CURRICULUM_ADMIN_USER)" "$(default_service_user)"
+  prompt_with_prefill ADMIN_GROUP "Admin service group (BLENDER_CURRICULUM_ADMIN_GROUP)" "$ADMIN_USER"
+  prompt_with_prefill ADMIN_HOST "Admin bind host (BLENDER_CURRICULUM_ADMIN_HOST)" "127.0.0.1"
+  prompt_with_prefill ADMIN_PORT "Admin bind port (BLENDER_CURRICULUM_ADMIN_PORT)" "8787"
 }
 
 validate_admin_config() {

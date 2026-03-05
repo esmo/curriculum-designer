@@ -24,6 +24,11 @@ You can also run it interactively (the script prompts for missing values):
 sudo /srv/blender-curriculum/repo/ops/install-server.sh
 ```
 
+If the configured env file already exists, its current values are offered as
+prompt defaults and can be accepted with Enter.
+If `BLENDER_CURRICULUM_*` variables are already set in the shell, they take
+priority as prompt defaults.
+
 After installation:
 
 ```bash
