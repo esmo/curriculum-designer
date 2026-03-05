@@ -133,6 +133,29 @@ No GitHub repository secrets are required for deployment.
 
 ### One-time server setup
 
+You can automate this section with:
+
+```bash
+sudo REPO_DIR=/srv/blender-curriculum/repo \
+  WEB_ROOT=/var/www/blender-curriculum \
+  CONTENT_ROOT=/srv/blender-curriculum-content \
+  ENV_FILE=/etc/blender-curriculum/deploy.env \
+  /srv/blender-curriculum/repo/ops/install-server.sh
+```
+
+If one of these variables is not set, `ops/install-server.sh` prompts for it interactively.
+You can also run it without variables and answer the prompts:
+
+```bash
+sudo /srv/blender-curriculum/repo/ops/install-server.sh
+```
+
+Useful options:
+
+- `MIGRATE_CONTENT=false`: skip initial content copy from repo to external content.
+- `OVERWRITE_ENV=true`: recreate `deploy.env` even if it already exists.
+- `INSTALL_DEPS=true`: install `git`, `rsync`, `nodejs`, `npm` via `apt-get` (root, Debian/Ubuntu).
+
 1. Clone this repo on the server (example: `/srv/blender-curriculum/repo`).
 2. Configure read-only GitHub access for that server clone (deploy key or token).
 3. Create separate content storage:
@@ -166,6 +189,38 @@ BRANCH=main \
 THEME_ROOT=/srv/blender-curriculum/repo/theme \
 CONTENT_ROOT=/srv/blender-curriculum-content \
 /srv/blender-curriculum/repo/ops/deploy-pull.sh
+```
+
+### Use a `.env` file for deployment variables
+
+If you do not want to pass variables on every run, store them in an env file on the server.
+Example: `/etc/blender-curriculum/deploy.env`
+
+```bash
+REPO_DIR=/srv/blender-curriculum/repo
+WEB_ROOT=/var/www/blender-curriculum
+BRANCH=main
+THEME_ROOT=/srv/blender-curriculum/repo/theme
+CONTENT_ROOT=/srv/blender-curriculum-content
+# Optional:
+# ADMIN_SERVICE=blender-curriculum-admin
+# ALLOW_DIRTY=false
+# FORCE_DEPLOY=false
+```
+
+Run deployment with:
+
+```bash
+set -a
+source /etc/blender-curriculum/deploy.env
+set +a
+/srv/blender-curriculum/repo/ops/deploy-pull.sh
+```
+
+Recommended file permissions:
+
+```bash
+sudo chmod 600 /etc/blender-curriculum/deploy.env
 ```
 
 You can trigger deployment whenever you want by running `ops/deploy-pull.sh` directly (manually, webhook, or your preferred scheduler).
