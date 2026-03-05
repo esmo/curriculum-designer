@@ -70,6 +70,28 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
+      .fields-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .field {
+        display: grid;
+        gap: 0.4rem;
+        font-weight: 600;
+        font-size: 0.92rem;
+        grid-column: span 6;
+      }
+
+      .field.width-half {
+        grid-column: span 3;
+      }
+
+      .field.width-third {
+        grid-column: span 2;
+      }
+
       label {
         display: grid;
         gap: 0.4rem;
@@ -146,8 +168,15 @@
 
       @media (max-width: 720px) {
         .grid-2,
-        .grid-3 {
+        .grid-3,
+        .fields-grid {
           grid-template-columns: 1fr;
+        }
+
+        .field,
+        .field.width-half,
+        .field.width-third {
+          grid-column: span 1;
         }
       }
     </style>
@@ -162,59 +191,13 @@
           <div class="grid-2">
             <label>
               Typ
-              <select name="entryType" required>
-                <option value="lesson">Lesson</option>
-                <option value="task">Task</option>
-                <option value="topic">Topic</option>
-              </select>
+              <select id="entry-type" name="entryType" required></select>
             </label>
 
-            <label>
-              Track
-              <input name="track" placeholder="Modeling" required />
-            </label>
+            <p class="hint">Felder werden aus den Markdown-Schemata geladen.</p>
           </div>
 
-          <div class="grid-2">
-            <label>
-              Titel
-              <input id="title" name="title" placeholder="Transforming Objects" required />
-            </label>
-
-            <label>
-              Slug
-              <input id="slug" name="slug" placeholder="transforming-objects" />
-              <span class="hint">Leer lassen, um ihn aus dem Titel zu erzeugen.</span>
-            </label>
-          </div>
-
-          <div class="grid-3">
-            <label>
-              Stage
-              <input name="stage" type="number" min="0" placeholder="1" />
-            </label>
-
-            <label>
-              Level
-              <input name="level" type="number" min="0" placeholder="1" />
-            </label>
-
-            <label>
-              Tags
-              <input name="tags" placeholder="Geometry Nodes, Theory" />
-              <span class="hint">Kommagetrennte Liste.</span>
-            </label>
-          </div>
-
-          <label>
-            Beschreibung
-            <textarea name="description" rows="3" style="min-height: 100px" required></textarea>
-          </label>
-
-          <label>
-            Inhalt (Markdown)
-            <textarea name="content" placeholder="# {{title}}"></textarea>
-          </label>
+          <div id="fields-root" class="fields-grid"></div>
 
           <label class="checkbox">
             <input type="checkbox" name="overwrite" />
@@ -233,9 +216,11 @@
       const form = document.getElementById("entry-form");
       const statusEl = document.getElementById("status");
       const submitBtn = document.getElementById("submit-btn");
-      const titleInput = document.getElementById("title");
-      const slugInput = document.getElementById("slug");
+      const entryTypeSelect = document.getElementById("entry-type");
+      const fieldsRoot = document.getElementById("fields-root");
       let slugWasEdited = false;
+      let schemaMap = new Map();
+      let currentSchema = null;
 
       function slugify(value) {
         return String(value || "")
@@ -253,14 +238,175 @@
         statusEl.textContent = message;
       }
 
-      titleInput.addEventListener("input", () => {
-        if (!slugWasEdited) {
-          slugInput.value = slugify(titleInput.value);
+      function fieldInputElement(field, elementId) {
+        if (field.input === "textarea") {
+          const textarea = document.createElement("textarea");
+          textarea.id = elementId;
+          textarea.name = field.name;
+          if (field.rows) {
+            textarea.rows = field.rows;
+          }
+          if (field.placeholder) {
+            textarea.placeholder = field.placeholder;
+          }
+          if (field.name === "content") {
+            textarea.style.minHeight = "300px";
+          } else if (field.name === "description") {
+            textarea.style.minHeight = "100px";
+          }
+          return textarea;
         }
-      });
 
-      slugInput.addEventListener("input", () => {
-        slugWasEdited = slugInput.value.trim().length > 0;
+        if (field.input === "select") {
+          const select = document.createElement("select");
+          select.id = elementId;
+          select.name = field.name;
+          for (const option of field.options || []) {
+            const opt = document.createElement("option");
+            opt.value = option.value;
+            opt.textContent = option.label;
+            select.appendChild(opt);
+          }
+          return select;
+        }
+
+        const input = document.createElement("input");
+        input.id = elementId;
+        input.name = field.name;
+        input.type = field.input === "number" ? "number" : "text";
+        if (field.input === "number" && Number.isFinite(field.min)) {
+          input.min = String(field.min);
+        }
+        if (field.placeholder) {
+          input.placeholder = field.placeholder;
+        }
+        return input;
+      }
+
+      function createField(field) {
+        const elementId = `field-${field.name}`;
+        const wrapper = document.createElement("label");
+        wrapper.className = `field width-${field.width || "full"}`;
+
+        const title = document.createTextNode(field.label);
+        wrapper.appendChild(title);
+
+        const control = fieldInputElement(field, elementId);
+        control.dataset.fieldName = field.name;
+        control.required = field.required === true;
+        wrapper.appendChild(control);
+
+        if (field.hint) {
+          const hint = document.createElement("span");
+          hint.className = "hint";
+          hint.textContent = field.hint;
+          wrapper.appendChild(hint);
+        }
+
+        return wrapper;
+      }
+
+      function getFieldElement(fieldName) {
+        return fieldsRoot.querySelector(`[data-field-name="${fieldName}"]`);
+      }
+
+      function connectSlugAutofill() {
+        slugWasEdited = false;
+        const titleInput = getFieldElement("title");
+        const slugInput = getFieldElement("slug");
+        if (!titleInput || !slugInput) {
+          return;
+        }
+
+        titleInput.addEventListener("input", () => {
+          if (!slugWasEdited) {
+            slugInput.value = slugify(titleInput.value);
+          }
+        });
+
+        slugInput.addEventListener("input", () => {
+          slugWasEdited = slugInput.value.trim().length > 0;
+        });
+      }
+
+      function renderSchema(schema) {
+        currentSchema = schema;
+        fieldsRoot.innerHTML = "";
+        for (const field of schema.fields || []) {
+          fieldsRoot.appendChild(createField(field));
+        }
+        connectSlugAutofill();
+      }
+
+      async function loadSchemas() {
+        const response = await fetch("/admin-api/schemas");
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "Schemata konnten nicht geladen werden.");
+        }
+
+        entryTypeSelect.innerHTML = "";
+        schemaMap = new Map();
+
+        for (const schema of data.schemas || []) {
+          schemaMap.set(schema.id, schema);
+          const option = document.createElement("option");
+          option.value = schema.id;
+          option.textContent = schema.label;
+          entryTypeSelect.appendChild(option);
+        }
+
+        const initialType = data.defaultEntryType || entryTypeSelect.value;
+        if (!schemaMap.has(initialType)) {
+          throw new Error("Kein gueltiges Standard-Schema gefunden.");
+        }
+
+        entryTypeSelect.value = initialType;
+        renderSchema(schemaMap.get(initialType));
+      }
+
+      function payloadFromForm() {
+        if (!currentSchema) {
+          throw new Error("Kein aktives Schema geladen.");
+        }
+
+        const fields = {};
+        for (const field of currentSchema.fields || []) {
+          const input = getFieldElement(field.name);
+          if (!input) {
+            continue;
+          }
+
+          if (field.input === "number") {
+            const raw = String(input.value || "").trim();
+            fields[field.name] = raw === "" ? null : Number(raw);
+          } else {
+            fields[field.name] = String(input.value || "");
+          }
+        }
+
+        if ((!fields.slug || fields.slug.trim() === "") && fields.title) {
+          fields.slug = slugify(fields.title);
+          const slugInput = getFieldElement("slug");
+          if (slugInput) {
+            slugInput.value = fields.slug;
+          }
+        }
+
+        const fd = new FormData(form);
+        return {
+          entryType: entryTypeSelect.value,
+          fields,
+          overwrite: fd.get("overwrite") === "on",
+        };
+      }
+
+      entryTypeSelect.addEventListener("change", () => {
+        const schema = schemaMap.get(entryTypeSelect.value);
+        if (schema) {
+          renderSchema(schema);
+        }
       });
 
       form.addEventListener("submit", async (event) => {
@@ -268,27 +414,9 @@
         setStatus("Speichere...", null);
         submitBtn.disabled = true;
 
-        const fd = new FormData(form);
-        const stageRaw = String(fd.get("stage") || "").trim();
-        const levelRaw = String(fd.get("level") || "").trim();
-        const payload = {
-          entryType: String(fd.get("entryType") || ""),
-          track: String(fd.get("track") || "").trim(),
-          title: String(fd.get("title") || "").trim(),
-          slug: String(fd.get("slug") || "").trim(),
-          description: String(fd.get("description") || "").trim(),
-          stage: stageRaw === "" ? null : Number(stageRaw),
-          level: levelRaw === "" ? null : Number(levelRaw),
-          tags: String(fd.get("tags") || "").trim(),
-          content: String(fd.get("content") || ""),
-          overwrite: fd.get("overwrite") === "on",
-        };
-
-        if (!payload.slug && payload.title) {
-          payload.slug = slugify(payload.title);
-        }
-
         try {
+          const payload = payloadFromForm();
+
           const response = await fetch("/admin-api/entries", {
             method: "POST",
             headers: {
@@ -318,12 +446,21 @@
             buildText = "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
           }
 
-          setStatus(`Gespeichert: ${data.file}. ${buildText}`, statusType);
+          setStatus(`Gespeichert: ${data.file}. ${buildText} Weiterleitung...`, statusType);
+          if (data.viewUrl) {
+            setTimeout(() => {
+              window.location.assign(data.viewUrl);
+            }, 300);
+          }
         } catch (error) {
           setStatus(error.message, "error");
         } finally {
           submitBtn.disabled = false;
         }
+      });
+
+      loadSchemas().catch((error) => {
+        setStatus(error.message, "error");
       });
     </script>
   </body>

@@ -87,6 +87,7 @@ Install-script specific variables:
 Admin runtime variable:
 
 - `BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH`
+- `BLENDER_CURRICULUM_SCHEMA_ROOT`
 
 ## Deployment Model
 
@@ -171,6 +172,40 @@ Admin save behavior:
 - writes Markdown into `content/` or `BLENDER_CURRICULUM_CONTENT_ROOT`
 - runs `npm run build`
 - if `BLENDER_CURRICULUM_WEB_ROOT` is set, syncs `build/` to web root via `rsync`
+- writes `updated_by` and `updated_at` on every save
+- redirects to the saved page after a successful save
+
+## Admin Schemas
+
+Admin forms are defined via Markdown schema files in:
+
+- default: `admin/schemas/`
+- optional override: `BLENDER_CURRICULUM_SCHEMA_ROOT`
+
+Each schema file contains a JSON code block.
+Example:
+
+```json
+{
+  "id": "lesson",
+  "label": "Lesson",
+  "typeValue": "Lesson",
+  "outputDir": "lessons",
+  "viewBasePath": "/lessons",
+  "fields": [
+    { "name": "track", "label": "Track", "input": "text", "required": true },
+    { "name": "title", "label": "Titel", "input": "text", "required": true },
+    { "name": "description", "label": "Beschreibung", "input": "textarea", "required": true }
+  ]
+}
+```
+
+Notes:
+
+- `fields` drive both form rendering and frontmatter generation.
+- `title`, `track`, and `description` are required by the server.
+- `slug` is optional and auto-generated from `title` if empty.
+- `content` is written as Markdown body, all other fields go to frontmatter.
 
 ## Nginx and Basic Auth
 
@@ -229,7 +264,7 @@ This keeps deployment robust:
 
 - `theme/`: templates, navigation data, styles, structural pages.
 - `content/`: editorial content (`lessons/`, `tasks/`, `topics/`).
-- `admin/`: static admin frontend.
+- `admin/`: static admin frontend and schema definitions.
 - `server/`: admin API server.
 - `ops/`: build/deploy/install scripts.
 

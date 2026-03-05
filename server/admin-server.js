@@ -13,6 +13,10 @@ const CONTENT_ROOT = path.resolve(
 const WEB_ROOT = process.env.BLENDER_CURRICULUM_WEB_ROOT
   ? path.resolve(process.env.BLENDER_CURRICULUM_WEB_ROOT)
   : "";
+const SCHEMA_ROOT = path.resolve(
+  process.env.BLENDER_CURRICULUM_SCHEMA_ROOT ||
+    path.join(ROOT_DIR, "admin", "schemas")
+);
 const ADMIN_DIR = path.join(ROOT_DIR, "admin");
 const NPM_BINARY = process.platform === "win32" ? "npm.cmd" : "npm";
 const RSYNC_BINARY = "rsync";
@@ -23,21 +27,7 @@ const ADMIN_PORT = Number.parseInt(
 );
 const ADMIN_HOST = process.env.BLENDER_CURRICULUM_ADMIN_HOST || "127.0.0.1";
 const REQUIRE_PROXY_AUTH = process.env.BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH === "true";
-
-const TYPE_CONFIG = {
-  lesson: {
-    dir: path.join(CONTENT_ROOT, "lessons"),
-    typeValue: "Lesson",
-  },
-  task: {
-    dir: path.join(CONTENT_ROOT, "tasks"),
-    typeValue: "Task",
-  },
-  topic: {
-    dir: path.join(CONTENT_ROOT, "topics"),
-    typeValue: "Topic",
-  },
-};
+const ALLOWED_FIELD_INPUTS = new Set(["text", "textarea", "number", "tags", "select"]);
 
 const app = Fastify({
   logger: true,
@@ -45,6 +35,8 @@ const app = Fastify({
 });
 
 let buildQueue = Promise.resolve();
+let entrySchemasByType = new Map();
+let defaultEntryType = "";
 
 function sanitizeSingleLine(value) {
   return String(value || "")
@@ -99,25 +91,281 @@ function normalizeTags(rawTags) {
     .filter(Boolean);
 }
 
-function toMarkdownDocument(input) {
-  const tags = normalizeTags(input.tags);
-  const lines = [
-    "---",
-    `track: ${yamlString(input.track)}`,
-    `type: ${yamlString(input.typeValue)}`,
-    `title: ${yamlString(input.title)}`,
-    `description: ${yamlString(input.description)}`,
-    `stage: ${input.stage === null ? "" : input.stage}`,
-    `level: ${input.level === null ? "" : input.level}`,
-  ];
+function sanitizeEntryType(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
-  if (tags.length > 0) {
-    const tagList = tags.map((tag) => yamlString(tag)).join(", ");
-    lines.push(`tags: [${tagList}]`);
+function ensureValidSchemaField(field, fieldIndex, sourcePath) {
+  if (!field || typeof field !== "object" || Array.isArray(field)) {
+    throw new Error(`Invalid field definition at index ${fieldIndex} in ${sourcePath}.`);
   }
 
+  const name = sanitizeEntryType(field.name);
+  if (!name) {
+    throw new Error(`Invalid field name at index ${fieldIndex} in ${sourcePath}.`);
+  }
+
+  const label = sanitizeSingleLine(field.label);
+  if (!label) {
+    throw new Error(`Field "${name}" in ${sourcePath} requires a non-empty label.`);
+  }
+
+  const input = sanitizeEntryType(field.input || "text");
+  if (!ALLOWED_FIELD_INPUTS.has(input)) {
+    throw new Error(
+      `Field "${name}" in ${sourcePath} uses unsupported input "${input}".`
+    );
+  }
+
+  let options = undefined;
+  if (input === "select") {
+    if (!Array.isArray(field.options) || field.options.length === 0) {
+      throw new Error(`Field "${name}" in ${sourcePath} must define select options.`);
+    }
+
+    options = field.options.map((option, optionIndex) => {
+      const value =
+        typeof option === "string"
+          ? sanitizeSingleLine(option)
+          : sanitizeSingleLine(option.value);
+      const optionLabel =
+        typeof option === "string"
+          ? sanitizeSingleLine(option)
+          : sanitizeSingleLine(option.label || option.value);
+
+      if (!value || !optionLabel) {
+        throw new Error(
+          `Invalid select option ${optionIndex} for field "${name}" in ${sourcePath}.`
+        );
+      }
+
+      return {
+        value,
+        label: optionLabel,
+      };
+    });
+  }
+
+  const width = sanitizeEntryType(field.width || "full");
+  const normalizedWidth =
+    width === "half" || width === "third" || width === "full" ? width : "full";
+
+  return {
+    name,
+    label,
+    input,
+    required: field.required === true,
+    placeholder: sanitizeSingleLine(field.placeholder || ""),
+    hint: sanitizeSingleLine(field.hint || ""),
+    width: normalizedWidth,
+    rows:
+      input === "textarea" && Number.isInteger(field.rows) && field.rows > 0
+        ? field.rows
+        : undefined,
+    min:
+      input === "number" && Number.isFinite(field.min)
+        ? Number(field.min)
+        : undefined,
+    options,
+  };
+}
+
+function parseSchemaMarkdown(markdown, sourcePath) {
+  const jsonBlockMatch = markdown.match(/```json\s*([\s\S]*?)\s*```/i);
+  if (!jsonBlockMatch) {
+    throw new Error(`Schema file ${sourcePath} has no JSON code block.`);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonBlockMatch[1]);
+  } catch (error) {
+    throw new Error(`Schema JSON in ${sourcePath} is invalid: ${error.message}`);
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`Schema in ${sourcePath} must be a JSON object.`);
+  }
+
+  const id = sanitizeEntryType(parsed.id);
+  const label = sanitizeSingleLine(parsed.label);
+  const typeValue = sanitizeSingleLine(parsed.typeValue);
+  const outputDir = sanitizeEntryType(parsed.outputDir);
+  const viewBasePath = sanitizeSingleLine(parsed.viewBasePath);
+
+  if (!id || !label || !typeValue || !outputDir) {
+    throw new Error(
+      `Schema in ${sourcePath} requires id, label, typeValue and outputDir.`
+    );
+  }
+
+  if (!viewBasePath.startsWith("/")) {
+    throw new Error(`Schema "${id}" in ${sourcePath} must use absolute viewBasePath.`);
+  }
+
+  if (!Array.isArray(parsed.fields) || parsed.fields.length === 0) {
+    throw new Error(`Schema "${id}" in ${sourcePath} must define fields.`);
+  }
+
+  const fields = [];
+  const names = new Set();
+  for (const [fieldIndex, field] of parsed.fields.entries()) {
+    const normalized = ensureValidSchemaField(field, fieldIndex, sourcePath);
+    if (names.has(normalized.name)) {
+      throw new Error(
+        `Duplicate field "${normalized.name}" in schema "${id}" (${sourcePath}).`
+      );
+    }
+    names.add(normalized.name);
+    fields.push(normalized);
+  }
+
+  for (const requiredField of ["title", "track", "description"]) {
+    if (!names.has(requiredField)) {
+      throw new Error(
+        `Schema "${id}" in ${sourcePath} must include "${requiredField}" field.`
+      );
+    }
+  }
+
+  return {
+    id,
+    label,
+    typeValue,
+    outputDir,
+    viewBasePath,
+    fields,
+    dir: path.join(CONTENT_ROOT, outputDir),
+  };
+}
+
+function publicSchema(schema) {
+  return {
+    id: schema.id,
+    label: schema.label,
+    fields: schema.fields,
+  };
+}
+
+async function loadEntrySchemas() {
+  const dirEntries = await fs.readdir(SCHEMA_ROOT, {
+    withFileTypes: true,
+  });
+
+  const markdownEntries = dirEntries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (markdownEntries.length === 0) {
+    throw new Error(`No schema files found in ${SCHEMA_ROOT}.`);
+  }
+
+  const schemaMap = new Map();
+
+  for (const entry of markdownEntries) {
+    const schemaPath = path.join(SCHEMA_ROOT, entry.name);
+    const markdown = await fs.readFile(schemaPath, "utf8");
+    const schema = parseSchemaMarkdown(markdown, schemaPath);
+
+    if (schemaMap.has(schema.id)) {
+      throw new Error(
+        `Duplicate schema id "${schema.id}" found in ${SCHEMA_ROOT}.`
+      );
+    }
+    schemaMap.set(schema.id, schema);
+  }
+
+  entrySchemasByType = schemaMap;
+  defaultEntryType = schemaMap.keys().next().value || "";
+}
+
+function parseFieldValue(field, rawValue) {
+  if (field.input === "number") {
+    const parsed = parseOptionalInteger(rawValue, field.name);
+    if (field.required && parsed === null) {
+      throw new Error(`Field "${field.name}" is required.`);
+    }
+    return parsed;
+  }
+
+  if (field.input === "tags") {
+    const tags = normalizeTags(rawValue);
+    if (field.required && tags.length === 0) {
+      throw new Error(`Field "${field.name}" is required.`);
+    }
+    return tags;
+  }
+
+  if (field.name === "content") {
+    const content = String(rawValue || "");
+    if (field.required && content.trim().length === 0) {
+      throw new Error(`Field "${field.name}" is required.`);
+    }
+    return content;
+  }
+
+  const value = sanitizeSingleLine(rawValue);
+  if (field.required && !value) {
+    throw new Error(`Field "${field.name}" is required.`);
+  }
+
+  if (field.input === "select" && Array.isArray(field.options) && value) {
+    const allowedValues = new Set(field.options.map((option) => option.value));
+    if (!allowedValues.has(value)) {
+      throw new Error(`Field "${field.name}" has an invalid value.`);
+    }
+  }
+
+  return value;
+}
+
+function normalizeBasePath(input) {
+  const clean = String(input || "")
+    .trim()
+    .replace(/\/+/g, "/")
+    .replace(/\/$/, "");
+  return clean.startsWith("/") ? clean : `/${clean}`;
+}
+
+function buildViewUrl(viewBasePath, slug) {
+  return `${normalizeBasePath(viewBasePath)}/${slug}/`;
+}
+
+function toMarkdownDocument(input) {
+  const lines = ["---"];
+
+  for (const field of input.schema.fields) {
+    if (field.name === "slug" || field.name === "content") {
+      continue;
+    }
+
+    const value = input.values[field.name];
+
+    if (field.input === "tags") {
+      if (Array.isArray(value) && value.length > 0) {
+        lines.push(`tags: [${value.map((tag) => yamlString(tag)).join(", ")}]`);
+      }
+      continue;
+    }
+
+    if (field.input === "number") {
+      lines.push(`${field.name}: ${value === null ? "" : value}`);
+      continue;
+    }
+
+    lines.push(`${field.name}: ${yamlString(value)}`);
+  }
+
+  lines.push(`type: ${yamlString(input.schema.typeValue)}`);
+  lines.push(`updated_by: ${yamlString(input.updatedBy)}`);
+  lines.push(`updated_at: ${yamlString(input.updatedAt)}`);
   lines.push("---", "");
-  const body = String(input.content || "").trimEnd();
+
+  const body = String(input.values.content || "").trimEnd();
   return `${lines.join("\n")}\n${body}\n`;
 }
 
@@ -274,81 +522,79 @@ app.get("/admin-api/health", { preHandler: requireProxyAuth }, async () => ({
   ok: true,
 }));
 
+app.get("/admin-api/schemas", { preHandler: requireProxyAuth }, async () => ({
+  ok: true,
+  defaultEntryType,
+  schemas: Array.from(entrySchemasByType.values()).map(publicSchema),
+}));
+
 app.post(
   "/admin-api/entries",
   {
     preHandler: requireProxyAuth,
-    schema: {
-      body: {
-        type: "object",
-        required: ["entryType", "title", "track", "description"],
-        additionalProperties: false,
-        properties: {
-          entryType: { type: "string" },
-          slug: { type: "string" },
-          title: { type: "string" },
-          track: { type: "string" },
-          description: { type: "string" },
-          stage: {
-            anyOf: [{ type: "string" }, { type: "number" }, { type: "null" }],
-          },
-          level: {
-            anyOf: [{ type: "string" }, { type: "number" }, { type: "null" }],
-          },
-          tags: {
-            anyOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
-          },
-          content: { type: "string" },
-          overwrite: { type: "boolean" },
-        },
-      },
-    },
   },
   async (request, reply) => {
     try {
       const payload = request.body;
-      const entryType = sanitizeSingleLine(payload.entryType).toLowerCase();
-      const config = TYPE_CONFIG[entryType];
-
-      if (!config) {
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
         reply.code(400).send({
-          error: "entryType must be one of: lesson, task, topic.",
+          error: "Request body must be an object.",
         });
         return;
       }
 
-      const title = sanitizeSingleLine(payload.title);
-      const track = sanitizeSingleLine(payload.track);
-      const description = sanitizeSingleLine(payload.description);
-      const stage = parseOptionalInteger(payload.stage, "stage");
-      const level = parseOptionalInteger(payload.level, "level");
-      const slugCandidate = sanitizeSingleLine(payload.slug) || title;
+      const entryType = sanitizeEntryType(payload.entryType);
+      const schema = entrySchemasByType.get(entryType);
+      if (!schema) {
+        reply.code(400).send({
+          error: `Unknown entryType "${entryType}".`,
+        });
+        return;
+      }
+
+      const fieldPayload = payload.fields;
+      if (!fieldPayload || typeof fieldPayload !== "object" || Array.isArray(fieldPayload)) {
+        reply.code(400).send({
+          error: "fields must be an object.",
+        });
+        return;
+      }
+
+      const values = {};
+      for (const field of schema.fields) {
+        values[field.name] = parseFieldValue(field, fieldPayload[field.name]);
+      }
+
+      const title = sanitizeSingleLine(values.title);
+      const track = sanitizeSingleLine(values.track);
+      const description = sanitizeSingleLine(values.description);
+      const slugCandidate = sanitizeSingleLine(values.slug) || title;
       const slug = normalizeSlug(slugCandidate);
 
       if (!title || !track || !description || !slug) {
         reply.code(400).send({
-          error: "title, track, description and a valid slug are required.",
+          error: "title, track, description and a valid slug are required by schema.",
         });
         return;
       }
 
-      const filePath = path.resolve(config.dir, `${slug}.md`);
-      if (!filePath.startsWith(`${config.dir}${path.sep}`)) {
+      const filePath = path.resolve(schema.dir, `${slug}.md`);
+      if (!filePath.startsWith(`${schema.dir}${path.sep}`)) {
         reply.code(400).send({
           error: "Invalid slug.",
         });
         return;
       }
 
+      const updatedBy = sanitizeSingleLine(request.headers["x-remote-user"]) || "local-admin";
+      const updatedAt = new Date().toISOString();
+
+      values.slug = slug;
       const markdown = toMarkdownDocument({
-        typeValue: config.typeValue,
-        title,
-        track,
-        description,
-        stage,
-        level,
-        tags: payload.tags,
-        content: payload.content || "",
+        schema,
+        values,
+        updatedBy,
+        updatedAt,
       });
 
       try {
@@ -364,17 +610,21 @@ app.post(
         // File does not exist, continue.
       }
 
-      await fs.mkdir(config.dir, { recursive: true });
+      await fs.mkdir(schema.dir, { recursive: true });
       await fs.writeFile(filePath, markdown, "utf8");
 
       const build = await enqueueBuild();
       const deployOk = build.ok && (build.sync ? build.sync.ok : true);
       const statusCode = deployOk ? 201 : 202;
+      const viewUrl = buildViewUrl(schema.viewBasePath, slug);
 
       reply.code(statusCode).send({
         ok: true,
         file: path.relative(ROOT_DIR, filePath),
         build,
+        viewUrl,
+        updatedBy,
+        updatedAt,
       });
     } catch (error) {
       reply.code(400).send({
@@ -386,6 +636,8 @@ app.post(
 
 async function start() {
   try {
+    await loadEntrySchemas();
+
     await app.listen({
       host: ADMIN_HOST,
       port: ADMIN_PORT,
@@ -397,6 +649,9 @@ async function start() {
       contentRoot: CONTENT_ROOT,
       webRoot: WEB_ROOT || null,
       syncToWebRoot: Boolean(WEB_ROOT),
+      schemaRoot: SCHEMA_ROOT,
+      schemaCount: entrySchemasByType.size,
+      defaultEntryType,
     });
   } catch (error) {
     app.log.error(error);

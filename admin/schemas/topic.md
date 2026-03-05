@@ -1,0 +1,84 @@
+# Topic Schema
+
+Dieses Schema definiert das Admin-Formular und die Frontmatter-Struktur fuer Topic-Dateien.
+
+```json
+{
+  "id": "topic",
+  "label": "Topic",
+  "typeValue": "Topic",
+  "outputDir": "topics",
+  "viewBasePath": "/topics",
+  "fields": [
+    {
+      "name": "track",
+      "label": "Track",
+      "input": "text",
+      "required": true,
+      "placeholder": "Modeling",
+      "width": "half"
+    },
+    {
+      "name": "title",
+      "label": "Titel",
+      "input": "text",
+      "required": true,
+      "placeholder": "Retopology",
+      "width": "half"
+    },
+    {
+      "name": "slug",
+      "label": "Slug",
+      "input": "text",
+      "required": false,
+      "placeholder": "retopology",
+      "hint": "Leer lassen, um ihn aus dem Titel zu erzeugen.",
+      "width": "half"
+    },
+    {
+      "name": "stage",
+      "label": "Stage",
+      "input": "number",
+      "required": false,
+      "min": 0,
+      "placeholder": "1",
+      "width": "third"
+    },
+    {
+      "name": "level",
+      "label": "Level",
+      "input": "number",
+      "required": false,
+      "min": 0,
+      "placeholder": "1",
+      "width": "third"
+    },
+    {
+      "name": "tags",
+      "label": "Tags",
+      "input": "tags",
+      "required": false,
+      "placeholder": "Workflow, Fundamentals",
+      "hint": "Kommagetrennte Liste.",
+      "width": "third"
+    },
+    {
+      "name": "description",
+      "label": "Beschreibung",
+      "input": "textarea",
+      "required": true,
+      "rows": 4,
+      "width": "full"
+    },
+    {
+      "name": "content",
+      "label": "Inhalt (Markdown)",
+      "input": "textarea",
+      "required": false,
+      "rows": 16,
+      "placeholder": "# {{title}}",
+      "width": "full"
+    }
+  ]
+}
+```
