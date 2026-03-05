@@ -7,7 +7,9 @@ const Fastify = require("fastify");
 const fastifyStatic = require("@fastify/static");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const CONTENT_ROOT = path.resolve(process.env.CONTENT_ROOT || path.join(ROOT_DIR, "src"));
+const CONTENT_ROOT = path.resolve(
+  process.env.CONTENT_ROOT || path.join(ROOT_DIR, "content")
+);
 const ADMIN_DIR = path.join(ROOT_DIR, "admin");
 const NPM_BINARY = process.platform === "win32" ? "npm.cmd" : "npm";
 

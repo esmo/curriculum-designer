@@ -2,7 +2,7 @@
   "scripts": {
     "build": "node ops/build.js",
     "clean": "shx rm -rf build_bac && shx mv build build_bac || true",
-    "watch": "onchange 'src/**/*' -- npm-run-all clean build",
+    "watch": "onchange 'theme/**/*' 'content/**/*' -- npm-run-all clean build",
     "serve": "npm run build && browser-sync start --server build/ --files 'build/**/*' --no-notify",
     "admin": "node server/admin-server.js",
     "start": "npm-run-all clean build --parallel watch serve",

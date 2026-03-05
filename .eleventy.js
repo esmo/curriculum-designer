@@ -5,7 +5,7 @@ const { addFilters } = require("./extensions/filters.js");
 // const { addShortcodes } = require("./extensions/shortcodes.js");
 
 module.exports = function (eleventyConfig) {
-  const inputDir = process.env.ELEVENTY_INPUT_DIR || "src";
+  const inputDir = process.env.ELEVENTY_INPUT_DIR || "theme";
   const outputDir = process.env.ELEVENTY_OUTPUT_DIR || "build/";
 
   // Your other Eleventy configuration...

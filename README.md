@@ -8,11 +8,16 @@ This is the source for my Blender Curriculum.
 - `npm run admin`: Runs the local Fastify admin server on `127.0.0.1:8787`.
 - `npm run start:admin`: Runs static preview + admin server together.
 
+## Source layout
+
+- `theme/`: templates, navigation data, styles, and structural pages.
+- `content/`: editorial content (`lessons/`, `tasks/`, `topics/`).
+
 ## Admin entry form
 
 The new admin UI is available at `/admin/` and writes Markdown files into:
 
-- default: `src/lessons`, `src/tasks`, `src/topics`
+- default: `content/lessons`, `content/tasks`, `content/topics`
 - with `CONTENT_ROOT` set: `$CONTENT_ROOT/lessons`, `$CONTENT_ROOT/tasks`, `$CONTENT_ROOT/topics`
 
 Each save calls `npm run build` so `build/` stays up-to-date.
@@ -52,6 +57,7 @@ User=deploy
 Group=deploy
 WorkingDirectory=/srv/blender-curriculum/repo
 Environment=REQUIRE_PROXY_AUTH=true
+Environment=THEME_ROOT=/srv/blender-curriculum/repo/theme
 Environment=CONTENT_ROOT=/srv/blender-curriculum-content
 ExecStart=/usr/bin/env npm run admin
 Restart=always
@@ -113,15 +119,13 @@ sudo htpasswd -c /etc/nginx/.htpasswd admin
 sudo htpasswd /etc/nginx/.htpasswd editor
 ```
 
-No Nginx restart is required for `.htpasswd` updates.  
-`sudo systemctl reload nginx` is optional if you want to explicitly reload configuration.
 
 ## Deployment (pull model, server initiated)
 Production deployment happens fully on the server via `ops/deploy-pull.sh`:
 
 1. fetch latest `main`
 2. fast-forward local repo
-3. run `npm ci` and `npm run build` (with optional external `CONTENT_ROOT`)
+3. run `npm ci` and `npm run build` using `THEME_ROOT` + `CONTENT_ROOT`
 4. sync `build/` to the web root via `rsync`
 5. optionally restart an admin service
 
@@ -140,9 +144,9 @@ mkdir -p /srv/blender-curriculum-content/{lessons,tasks,topics}
 4. Migrate existing content once (optional but recommended):
 
 ```bash
-rsync -a /srv/blender-curriculum/repo/src/lessons/ /srv/blender-curriculum-content/lessons/
-rsync -a /srv/blender-curriculum/repo/src/tasks/ /srv/blender-curriculum-content/tasks/
-rsync -a /srv/blender-curriculum/repo/src/topics/ /srv/blender-curriculum-content/topics/
+rsync -a /srv/blender-curriculum/repo/content/lessons/ /srv/blender-curriculum-content/lessons/
+rsync -a /srv/blender-curriculum/repo/content/tasks/ /srv/blender-curriculum-content/tasks/
+rsync -a /srv/blender-curriculum/repo/content/topics/ /srv/blender-curriculum-content/topics/
 ```
 
 5. Ensure the web root exists (example: `/var/www/blender-curriculum`) and is writable by the deploy user.
@@ -159,6 +163,7 @@ chmod +x /srv/blender-curriculum/repo/ops/deploy-pull.sh
 REPO_DIR=/srv/blender-curriculum/repo \
 WEB_ROOT=/var/www/blender-curriculum \
 BRANCH=main \
+THEME_ROOT=/srv/blender-curriculum/repo/theme \
 CONTENT_ROOT=/srv/blender-curriculum-content \
 /srv/blender-curriculum/repo/ops/deploy-pull.sh
 ```

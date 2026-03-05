@@ -4,7 +4,8 @@ set -euo pipefail
 REPO_DIR="${REPO_DIR:-/srv/blender-curriculum/repo}"
 BRANCH="${BRANCH:-main}"
 WEB_ROOT="${WEB_ROOT:-/var/www/blender-curriculum}"
-CONTENT_ROOT="${CONTENT_ROOT:-}"
+THEME_ROOT="${THEME_ROOT:-$REPO_DIR/theme}"
+CONTENT_ROOT="${CONTENT_ROOT:-$REPO_DIR/content}"
 ADMIN_SERVICE="${ADMIN_SERVICE:-}"
 FORCE_DEPLOY="${FORCE_DEPLOY:-false}"
 ALLOW_DIRTY="${ALLOW_DIRTY:-false}"
@@ -41,6 +42,12 @@ fi
 if [ "$has_local_changes" = "true" ]; then
   echo "Repository has local changes. Skipping git fetch/merge."
 else
+  content_outside_repo="false"
+  case "$CONTENT_ROOT" in
+    "$REPO_DIR"/*) ;;
+    *) content_outside_repo="true" ;;
+  esac
+
   git fetch --prune origin "$BRANCH"
 
   if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
@@ -53,8 +60,8 @@ else
   remote_commit="$(git rev-parse "origin/$BRANCH")"
 
   if [ "$local_commit" = "$remote_commit" ]; then
-    if [ -n "$CONTENT_ROOT" ]; then
-      echo "No new git commit, but CONTENT_ROOT is set. Continuing."
+    if [ "$content_outside_repo" = "true" ]; then
+      echo "No new git commit, but CONTENT_ROOT is outside repo. Continuing."
     elif [ "$FORCE_DEPLOY" != "true" ]; then
       echo "No changes on origin/$BRANCH. Nothing to deploy."
       echo "Set FORCE_DEPLOY=true to build and sync anyway."
@@ -68,13 +75,8 @@ else
 fi
 
 npm ci
-
-if [ -n "$CONTENT_ROOT" ]; then
-  mkdir -p "$CONTENT_ROOT/lessons" "$CONTENT_ROOT/tasks" "$CONTENT_ROOT/topics"
-  CONTENT_ROOT="$CONTENT_ROOT" npm run build
-else
-  npm run build
-fi
+mkdir -p "$CONTENT_ROOT/lessons" "$CONTENT_ROOT/tasks" "$CONTENT_ROOT/topics"
+THEME_ROOT="$THEME_ROOT" CONTENT_ROOT="$CONTENT_ROOT" npm run build
 
 rsync -az --delete build/ "${WEB_ROOT}/"
 

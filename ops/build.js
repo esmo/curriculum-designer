@@ -6,41 +6,42 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const APP_SRC_DIR = path.join(ROOT_DIR, "src");
+const THEME_ROOT = path.resolve(
+  process.env.THEME_ROOT || path.join(ROOT_DIR, "theme")
+);
+const CONTENT_ROOT = path.resolve(
+  process.env.CONTENT_ROOT || path.join(ROOT_DIR, "content")
+);
 const OUTPUT_DIR = path.join(ROOT_DIR, "build");
-const CONTENT_ROOT = process.env.CONTENT_ROOT
-  ? path.resolve(process.env.CONTENT_ROOT)
-  : "";
 const CONTENT_DIRS = ["lessons", "tasks", "topics"];
 
 function ensureDirectory(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function prepareInputDirectory() {
-  if (!CONTENT_ROOT) {
-    return {
-      inputDir: APP_SRC_DIR,
-      cleanup: null,
-    };
+function ensureThemeDirectory() {
+  if (!fs.existsSync(THEME_ROOT) || !fs.statSync(THEME_ROOT).isDirectory()) {
+    throw new Error(`Theme root is missing or invalid: ${THEME_ROOT}`);
   }
+}
+
+function ensureContentDirectory() {
+  ensureDirectory(CONTENT_ROOT);
+  for (const dirName of CONTENT_DIRS) {
+    ensureDirectory(path.join(CONTENT_ROOT, dirName));
+  }
+}
+
+function prepareInputDirectory() {
+  ensureThemeDirectory();
+  ensureContentDirectory();
 
   const tempInputDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "blender-curriculum-src-")
+    path.join(os.tmpdir(), "blender-curriculum-input-")
   );
 
-  fs.cpSync(APP_SRC_DIR, tempInputDir, { recursive: true });
-
-  ensureDirectory(CONTENT_ROOT);
-
-  for (const contentDir of CONTENT_DIRS) {
-    const sourceDir = path.join(CONTENT_ROOT, contentDir);
-    const targetDir = path.join(tempInputDir, contentDir);
-
-    ensureDirectory(sourceDir);
-    fs.rmSync(targetDir, { recursive: true, force: true });
-    fs.cpSync(sourceDir, targetDir, { recursive: true });
-  }
+  fs.cpSync(THEME_ROOT, tempInputDir, { recursive: true });
+  fs.cpSync(CONTENT_ROOT, tempInputDir, { recursive: true, force: true });
 
   return {
     inputDir: tempInputDir,
@@ -78,9 +79,8 @@ function runBuild(inputDir) {
 function main() {
   const { inputDir, cleanup } = prepareInputDirectory();
 
-  if (CONTENT_ROOT) {
-    process.stdout.write(`Using external content root: ${CONTENT_ROOT}\n`);
-  }
+  process.stdout.write(`Using theme root: ${THEME_ROOT}\n`);
+  process.stdout.write(`Using content root: ${CONTENT_ROOT}\n`);
 
   try {
     runBuild(inputDir);
