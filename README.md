@@ -33,6 +33,10 @@ set +a
 /srv/blender-curriculum/repo/ops/deploy-pull.sh
 ```
 
+`ops/install-server.sh` also creates `$REPO_DIR/.envrc` by default
+(`BLENDER_CURRICULUM_SETUP_DIRENV=true`) so `direnv` can auto-load
+`BLENDER_CURRICULUM_*` variables when you enter the repository.
+
 If installed as root, finalize services:
 
 ```bash
@@ -76,6 +80,7 @@ Install-script specific variables:
 - `BLENDER_CURRICULUM_MIGRATE_CONTENT`
 - `BLENDER_CURRICULUM_OVERWRITE_ENV`
 - `BLENDER_CURRICULUM_INSTALL_DEPS`
+- `BLENDER_CURRICULUM_SETUP_DIRENV`
 - `BLENDER_CURRICULUM_ADMIN_USER`
 - `BLENDER_CURRICULUM_ADMIN_GROUP`
 - `BLENDER_CURRICULUM_ADMIN_HOST`

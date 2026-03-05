@@ -14,6 +14,7 @@ ADMIN_PORT="${BLENDER_CURRICULUM_ADMIN_PORT:-}"
 MIGRATE_CONTENT="${BLENDER_CURRICULUM_MIGRATE_CONTENT:-true}"
 OVERWRITE_ENV="${BLENDER_CURRICULUM_OVERWRITE_ENV:-false}"
 INSTALL_DEPS="${BLENDER_CURRICULUM_INSTALL_DEPS:-false}"
+SETUP_DIRENV="${BLENDER_CURRICULUM_SETUP_DIRENV:-true}"
 ADMIN_SERVICE="${BLENDER_CURRICULUM_ADMIN_SERVICE:-}"
 SYSTEMD_UNIT_NAME="${BLENDER_CURRICULUM_SYSTEMD_UNIT_NAME:-blender-curriculum-admin.service}"
 NGINX_SNIPPET_NAME="${BLENDER_CURRICULUM_NGINX_SNIPPET_NAME:-blender-curriculum-admin.conf}"
@@ -236,6 +237,48 @@ EOF
   chmod 600 "$ENV_FILE" || true
 }
 
+setup_direnv() {
+  local envrc_path
+  local shell_user
+
+  if [ "$SETUP_DIRENV" != "true" ]; then
+    log "Skipping direnv setup (BLENDER_CURRICULUM_SETUP_DIRENV=false)."
+    return
+  fi
+
+  envrc_path="$REPO_DIR/.envrc"
+  cat >"$envrc_path" <<EOF
+set -a
+source "$ENV_FILE"
+set +a
+EOF
+
+  chmod 644 "$envrc_path" || true
+  chown "$ADMIN_USER:$ADMIN_GROUP" "$envrc_path" 2>/dev/null || true
+  log "Wrote direnv file: $envrc_path"
+
+  if ! command -v direnv >/dev/null 2>&1; then
+    log "direnv not found. Install direnv and add hook to your shell to enable auto-loading."
+    log "  zsh:  eval \"\$(direnv hook zsh)\""
+    log "  bash: eval \"\$(direnv hook bash)\""
+    return
+  fi
+
+  shell_user="${SUDO_USER:-$(id -un)}"
+  if id "$shell_user" >/dev/null 2>&1; then
+    if [ "$(id -u)" -eq 0 ] && [ "$shell_user" != "root" ]; then
+      sudo -u "$shell_user" direnv allow "$REPO_DIR" >/dev/null 2>&1 || true
+    else
+      direnv allow "$REPO_DIR" >/dev/null 2>&1 || true
+    fi
+    log "direnv allowed for $shell_user in: $REPO_DIR"
+  fi
+
+  log "If not already configured, add direnv hook to your shell profile:"
+  log "  zsh:  eval \"\$(direnv hook zsh)\""
+  log "  bash: eval \"\$(direnv hook bash)\""
+}
+
 migrate_content() {
   if [ "$MIGRATE_CONTENT" != "true" ]; then
     log "Skipping content migration (BLENDER_CURRICULUM_MIGRATE_CONTENT=false)."
@@ -273,6 +316,7 @@ main() {
 
   chmod +x "$REPO_DIR/ops/deploy-pull.sh"
   write_env_file
+  setup_direnv
   generate_runtime_configs
 
   log "Installation complete."
