@@ -13,6 +13,7 @@ const CONTENT_ROOT = path.resolve(
   process.env.BLENDER_CURRICULUM_CONTENT_ROOT || path.join(ROOT_DIR, "content")
 );
 const OUTPUT_DIR = path.join(ROOT_DIR, "build");
+const ADMIN_RUNTIME_DIR = path.join(ROOT_DIR, "admin");
 const CONTENT_DIRS = ["lessons", "tasks", "topics"];
 
 function ensureDirectory(dirPath) {
@@ -76,6 +77,27 @@ function runBuild(inputDir) {
   }
 }
 
+function syncAdminFrontend() {
+  const builtAdminDir = path.join(OUTPUT_DIR, "admin");
+  const builtAdminIndex = path.join(builtAdminDir, "index.html");
+  if (!fs.existsSync(builtAdminIndex)) {
+    throw new Error(
+      `Admin template build output is missing: ${builtAdminIndex}`
+    );
+  }
+
+  ensureDirectory(ADMIN_RUNTIME_DIR);
+  fs.copyFileSync(builtAdminIndex, path.join(ADMIN_RUNTIME_DIR, "index.html"));
+
+  const builtAdminAssets = path.join(builtAdminDir, "assets");
+  if (fs.existsSync(builtAdminAssets) && fs.statSync(builtAdminAssets).isDirectory()) {
+    fs.cpSync(builtAdminAssets, path.join(ADMIN_RUNTIME_DIR, "assets"), {
+      recursive: true,
+      force: true,
+    });
+  }
+}
+
 function main() {
   const { inputDir, cleanup } = prepareInputDirectory();
 
@@ -84,6 +106,7 @@ function main() {
 
   try {
     runBuild(inputDir);
+    syncAdminFrontend();
   } finally {
     if (cleanup) {
       cleanup();
