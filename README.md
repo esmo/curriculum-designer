@@ -227,10 +227,14 @@ Notes:
 
 ## Nginx and Basic Auth
 
-Nginx should protect both endpoints:
+Nginx should protect these endpoints:
 
 - `/admin/`
 - `/admin-api/`
+
+Additionally expose `/api/session` for frontend login-state checks.
+It should not trigger a browser auth prompt for anonymous visitors and should
+return a JSON fallback with `loggedIn: false`.
 
 Example snippet:
 
@@ -257,6 +261,23 @@ location /admin-api/ {
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto $scheme;
   proxy_set_header X-Remote-User $remote_user;
+}
+
+location = /api/session {
+  auth_basic "Admin";
+  auth_basic_user_file /etc/nginx/.htpasswd;
+  error_page 401 = @api_session_anonymous;
+  proxy_pass http://127.0.0.1:8787/api/session;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Remote-User $remote_user;
+}
+
+location @api_session_anonymous {
+  default_type application/json;
+  add_header Cache-Control "no-store";
+  return 200 '{"ok":true,"loggedIn":false,"user":{"name":""}}';
 }
 ```
 

@@ -206,6 +206,23 @@ location /admin-api/ {
   proxy_set_header X-Forwarded-Proto \$scheme;
   proxy_set_header X-Remote-User \$remote_user;
 }
+
+location = /api/session {
+  auth_basic "Admin";
+  auth_basic_user_file $NGINX_HTPASSWD_PATH;
+  error_page 401 = @api_session_anonymous;
+  proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/api/session;
+  proxy_set_header Host \$host;
+  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto \$scheme;
+  proxy_set_header X-Remote-User \$remote_user;
+}
+
+location @api_session_anonymous {
+  default_type application/json;
+  add_header Cache-Control "no-store";
+  return 200 '{"ok":true,"loggedIn":false,"user":{"name":""}}';
+}
 EOF
 }
 
