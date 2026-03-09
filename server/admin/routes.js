@@ -33,7 +33,7 @@ function registerRoutes(app, input) {
     reply.redirect("/admin/");
   });
 
-  app.get("/admin-api/session", async (request) => {
+  app.get("/api/session", async (request) => {
     const userName = auth.requestRemoteUser(request) || "";
     return {
       ok: true,

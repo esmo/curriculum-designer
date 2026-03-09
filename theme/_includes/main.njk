@@ -63,7 +63,7 @@
         setUserName(initialUserName);
         setLoggedInState(Boolean(initialUserName));
 
-        fetch("/admin-api/session", { credentials: "same-origin" })
+        fetch("/api/session", { credentials: "same-origin" })
           .then(async (response) => {
             if (!response.ok) {
               setLoggedInState(false);
