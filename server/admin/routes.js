@@ -15,6 +15,21 @@ function sendError(reply, error) {
   reply.code(statusCode).send(payload);
 }
 
+function sanitizeSingleLine(value) {
+  return String(value || "")
+    .replace(/\r?\n/g, " ")
+    .trim();
+}
+
+function requestSessionUser(request, auth) {
+  const cookieUser = sanitizeSingleLine(request.headers["x-admin-user"]);
+  if (cookieUser) {
+    return cookieUser;
+  }
+
+  return auth.requestRemoteUser(request) || "";
+}
+
 function registerRoutes(app, input) {
   const {
     adminDir,
@@ -33,8 +48,9 @@ function registerRoutes(app, input) {
     reply.redirect("/admin/");
   });
 
-  app.get("/admin/api/session", async (request) => {
-    const userName = auth.requestRemoteUser(request) || "";
+  app.get("/admin/session", async (request, reply) => {
+    const userName = requestSessionUser(request, auth);
+    reply.header("cache-control", "no-store");
     return {
       ok: true,
       loggedIn: Boolean(userName),

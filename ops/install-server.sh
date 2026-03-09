@@ -187,21 +187,19 @@ location = /admin {
   return 301 /admin/;
 }
 
-location = /admin/api/session {
-  auth_basic "Admin";
-  auth_basic_user_file $NGINX_HTPASSWD_PATH;
-  error_page 401 = @admin_api_session_anonymous;
-  proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/admin/api/session;
+location = /admin/session {
+  proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/admin/session;
   proxy_set_header Host \$host;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto \$scheme;
-  proxy_set_header X-Remote-User \$remote_user;
+  proxy_set_header X-Admin-User \$cookie_bc_admin_user;
 }
 
 location /admin/api/ {
   auth_basic "Admin";
   auth_basic_user_file $NGINX_HTPASSWD_PATH;
   proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/admin/api/;
+  add_header Set-Cookie "bc_admin_user=\$remote_user; Path=/admin; HttpOnly; Secure; SameSite=Lax" always;
   proxy_set_header Host \$host;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto \$scheme;
@@ -212,16 +210,11 @@ location /admin/ {
   auth_basic "Admin";
   auth_basic_user_file $NGINX_HTPASSWD_PATH;
   proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/admin/;
+  add_header Set-Cookie "bc_admin_user=\$remote_user; Path=/admin; HttpOnly; Secure; SameSite=Lax" always;
   proxy_set_header Host \$host;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto \$scheme;
   proxy_set_header X-Remote-User \$remote_user;
-}
-
-location @admin_api_session_anonymous {
-  default_type application/json;
-  add_header Cache-Control "no-store";
-  return 200 '{"ok":true,"loggedIn":false,"user":{"name":""}}';
 }
 EOF
 }

@@ -232,9 +232,9 @@ Nginx should protect these endpoints:
 - `/admin/`
 - `/admin/api/`
 
-The frontend login-state check should use `/admin/api/session`.
-This endpoint should not trigger a browser auth prompt for anonymous visitors
-and should return a JSON fallback with `loggedIn: false`.
+The frontend login-state check should use `/admin/session`.
+Use it as an unauthenticated status endpoint that reads an
+`bc_admin_user` cookie set on authenticated `/admin/` and `/admin/api/` requests.
 
 Example snippet:
 
@@ -243,21 +243,19 @@ location = /admin {
   return 301 /admin/;
 }
 
-location = /admin/api/session {
-  auth_basic "Admin";
-  auth_basic_user_file /etc/nginx/.htpasswd;
-  error_page 401 = @admin_api_session_anonymous;
-  proxy_pass http://127.0.0.1:8787/admin/api/session;
+location = /admin/session {
+  proxy_pass http://127.0.0.1:8787/admin/session;
   proxy_set_header Host $host;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto $scheme;
-  proxy_set_header X-Remote-User $remote_user;
+  proxy_set_header X-Admin-User $cookie_bc_admin_user;
 }
 
 location /admin/api/ {
   auth_basic "Admin";
   auth_basic_user_file /etc/nginx/.htpasswd;
   proxy_pass http://127.0.0.1:8787/admin/api/;
+  add_header Set-Cookie "bc_admin_user=$remote_user; Path=/admin; HttpOnly; Secure; SameSite=Lax" always;
   proxy_set_header Host $host;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto $scheme;
@@ -267,17 +265,12 @@ location /admin/api/ {
 location /admin/ {
   auth_basic "Admin";
   auth_basic_user_file /etc/nginx/.htpasswd;
+  proxy_pass http://127.0.0.1:8787/admin/;
+  add_header Set-Cookie "bc_admin_user=$remote_user; Path=/admin; HttpOnly; Secure; SameSite=Lax" always;
   proxy_set_header Host $host;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto $scheme;
   proxy_set_header X-Remote-User $remote_user;
-  proxy_pass http://127.0.0.1:8787/admin/;
-}
-
-location @admin_api_session_anonymous {
-  default_type application/json;
-  add_header Cache-Control "no-store";
-  return 200 '{"ok":true,"loggedIn":false,"user":{"name":""}}';
 }
 ```
 
