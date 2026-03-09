@@ -240,3 +240,148 @@ li p {
   padding: 0;
   margin: 0;
 }
+
+/* Admin page */
+.admin-page {
+  max-width: 920px;
+  margin: 2rem auto;
+  padding: 0 1rem 2rem;
+}
+
+.admin-card {
+  background: #fff;
+  border: 1px solid #dbe0ea;
+  border-radius: 16px;
+  box-shadow: 0 16px 32px rgba(19, 72, 201, 0.08);
+  padding: 1.25rem;
+}
+
+.admin-page-intro {
+  margin: 0;
+  color: #54607a;
+}
+
+.admin-form {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-grid-2 {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-page .fields-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.admin-page .field {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+  grid-column: span 6;
+}
+
+.admin-page .field.width-half {
+  grid-column: span 3;
+}
+
+.admin-page .field.width-third {
+  grid-column: span 2;
+}
+
+.admin-page label {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.admin-page input,
+.admin-page select,
+.admin-page textarea,
+.admin-page button {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #dbe0ea;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+}
+
+.admin-page textarea {
+  min-height: 300px;
+  resize: vertical;
+}
+
+.admin-page button {
+  width: auto;
+  background: #1348c9;
+  color: #fff;
+  border: 0;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0.72rem 1rem;
+}
+
+.admin-page button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.admin-page .actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.admin-page .actions button.danger {
+  background: #a51818;
+}
+
+.admin-page .status {
+  min-height: 1.5rem;
+  font-size: 0.92rem;
+}
+
+.admin-page .status.error {
+  color: #a51818;
+}
+
+.admin-page .status.success {
+  color: #0b6840;
+}
+
+.admin-page .hint {
+  font-size: 0.82rem;
+  color: #54607a;
+}
+
+.admin-page .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.admin-page .checkbox input {
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 720px) {
+  .admin-grid-2,
+  .admin-page .fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-page .field,
+  .admin-page .field.width-half,
+  .admin-page .field.width-third {
+    grid-column: span 1;
+  }
+}

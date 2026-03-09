@@ -1,657 +1,470 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Blender Curriculum Admin</title>
-    <style>
-      :root {
-        color-scheme: light;
-        --bg: #f7f8fc;
-        --surface: #ffffff;
-        --text: #1a2131;
-        --muted: #54607a;
-        --primary: #1348c9;
-        --border: #dbe0ea;
-        --danger: #a51818;
-        --success: #0b6840;
+<main class="admin-page">
+  <section class="admin-card">
+    <h1>Curriculum Admin</h1>
+    <p class="admin-page-intro">
+      Erstellt oder aktualisiert Eintraege in <code>content/</code> (oder
+      <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) und startet danach einen Eleventy-Build.
+    </p>
+
+    <form id="entry-form" class="admin-form">
+      <div class="admin-grid-2">
+        <label>
+          Typ
+          <select id="entry-type" name="entryType" required></select>
+        </label>
+
+        <p class="hint">Felder werden aus YAML-Schemata geladen.</p>
+      </div>
+
+      <div id="fields-root" class="fields-grid"></div>
+
+      <label class="checkbox">
+        <input type="checkbox" name="overwrite" />
+        Bestehende Datei mit gleichem Slug ueberschreiben
+      </label>
+
+      <div class="actions">
+        <button id="submit-btn" type="submit">Speichern</button>
+        <button id="delete-btn" class="danger" type="button" hidden>Loeschen</button>
+        <div id="status" class="status"></div>
+      </div>
+    </form>
+  </section>
+</main>
+
+<script>
+  const form = document.getElementById("entry-form");
+  const statusEl = document.getElementById("status");
+  const submitBtn = document.getElementById("submit-btn");
+  const deleteBtn = document.getElementById("delete-btn");
+  const entryTypeSelect = document.getElementById("entry-type");
+  const fieldsRoot = document.getElementById("fields-root");
+  const overwriteCheckbox = form.querySelector('input[name="overwrite"]');
+  const overwriteLabel = overwriteCheckbox?.closest(".checkbox");
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedEntryType = sanitizeEntryType(urlParams.get("entryType"));
+  const requestedSlug = slugify(urlParams.get("slug"));
+  const isEditMode = Boolean(requestedEntryType && requestedSlug);
+  const editTarget = isEditMode
+    ? { entryType: requestedEntryType, slug: requestedSlug }
+    : null;
+  let slugWasEdited = false;
+  let schemaMap = new Map();
+  let currentSchema = null;
+
+  function slugify(value) {
+    return String(value || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^[-_]+|[-_]+$/g, "");
+  }
+
+  function sanitizeEntryType(value) {
+    return String(value || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function setStatus(message, type) {
+    statusEl.className = "status";
+    if (type) {
+      statusEl.classList.add(type);
+    }
+    statusEl.textContent = message;
+  }
+
+  function fieldInputElement(field, elementId) {
+    if (field.input === "textarea") {
+      const textarea = document.createElement("textarea");
+      textarea.id = elementId;
+      textarea.name = field.name;
+      if (field.rows) {
+        textarea.rows = field.rows;
+      }
+      if (field.placeholder) {
+        textarea.placeholder = field.placeholder;
+      }
+      if (field.name === "content") {
+        textarea.style.minHeight = "300px";
+      } else if (field.name === "description") {
+        textarea.style.minHeight = "100px";
+      }
+      return textarea;
+    }
+
+    if (field.input === "select") {
+      const select = document.createElement("select");
+      select.id = elementId;
+      select.name = field.name;
+      for (const option of field.options || []) {
+        const opt = document.createElement("option");
+        opt.value = option.value;
+        opt.textContent = option.label;
+        select.appendChild(opt);
+      }
+      return select;
+    }
+
+    const input = document.createElement("input");
+    input.id = elementId;
+    input.name = field.name;
+    input.type = field.input === "number" ? "number" : "text";
+    if (field.input === "number" && Number.isFinite(field.min)) {
+      input.min = String(field.min);
+    }
+    if (field.placeholder) {
+      input.placeholder = field.placeholder;
+    }
+    return input;
+  }
+
+  function createField(field) {
+    const elementId = `field-${field.name}`;
+    const wrapper = document.createElement("label");
+    wrapper.className = `field width-${field.width || "full"}`;
+
+    const title = document.createTextNode(field.label);
+    wrapper.appendChild(title);
+
+    const control = fieldInputElement(field, elementId);
+    control.dataset.fieldName = field.name;
+    control.required = field.required === true;
+    wrapper.appendChild(control);
+
+    if (field.hint) {
+      const hint = document.createElement("span");
+      hint.className = "hint";
+      hint.textContent = field.hint;
+      wrapper.appendChild(hint);
+    }
+
+    return wrapper;
+  }
+
+  function getFieldElement(fieldName) {
+    return fieldsRoot.querySelector(`[data-field-name="${fieldName}"]`);
+  }
+
+  function connectSlugAutofill() {
+    if (isEditMode) {
+      slugWasEdited = true;
+      return;
+    }
+
+    slugWasEdited = false;
+    const titleInput = getFieldElement("title");
+    const slugInput = getFieldElement("slug");
+    if (!titleInput || !slugInput) {
+      return;
+    }
+
+    titleInput.addEventListener("input", () => {
+      if (!slugWasEdited) {
+        slugInput.value = slugify(titleInput.value);
+      }
+    });
+
+    slugInput.addEventListener("input", () => {
+      slugWasEdited = slugInput.value.trim().length > 0;
+    });
+  }
+
+  function renderSchema(schema) {
+    currentSchema = schema;
+    fieldsRoot.innerHTML = "";
+    for (const field of schema.fields || []) {
+      fieldsRoot.appendChild(createField(field));
+    }
+    connectSlugAutofill();
+  }
+
+  function applyFieldValues(values) {
+    for (const field of currentSchema?.fields || []) {
+      const input = getFieldElement(field.name);
+      if (!input) {
+        continue;
       }
 
-      * {
-        box-sizing: border-box;
+      const value = values[field.name];
+      input.value = value === null || value === undefined ? "" : String(value);
+    }
+  }
+
+  function buildDeployMessage(data, mode) {
+    const sync = data.build?.sync;
+    let buildText = "Build erfolgreich.";
+    let statusType = "success";
+
+    if (!data.build?.ok) {
+      buildText = `${mode} gespeichert, Build fehlgeschlagen.`;
+      statusType = "error";
+    } else if (sync && !sync.ok && !sync.skipped) {
+      buildText =
+        "Build erfolgreich, Sync nach BLENDER_CURRICULUM_WEB_ROOT fehlgeschlagen.";
+      statusType = "error";
+    } else if (sync && sync.ok && !sync.skipped) {
+      buildText = "Build und Sync erfolgreich.";
+    } else if (sync && sync.skipped) {
+      buildText =
+        "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
+    }
+
+    return {
+      text: buildText,
+      statusType,
+    };
+  }
+
+  async function loadEntryForEdit(entryType, slug) {
+    const response = await fetch(
+      `/admin-api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(slug)}`
+    );
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || "Eintrag konnte nicht geladen werden.");
+    }
+
+    if (!schemaMap.has(data.entryType)) {
+      throw new Error(`Schema "${data.entryType}" ist nicht verfuegbar.`);
+    }
+
+    if (entryTypeSelect.value !== data.entryType) {
+      entryTypeSelect.value = data.entryType;
+      renderSchema(schemaMap.get(data.entryType));
+    }
+
+    applyFieldValues(data.fields || {});
+
+    const slugInput = getFieldElement("slug");
+    if (slugInput) {
+      slugInput.value = data.slug || slug;
+      slugInput.readOnly = true;
+    }
+
+    submitBtn.textContent = "Speichern";
+    if (overwriteCheckbox) {
+      overwriteCheckbox.checked = true;
+    }
+    if (overwriteLabel) {
+      overwriteLabel.hidden = true;
+    }
+
+    entryTypeSelect.disabled = true;
+    deleteBtn.hidden = false;
+    setStatus(`Bearbeite: ${data.file}`, null);
+  }
+
+  async function loadSchemas() {
+    const response = await fetch("/admin-api/schemas");
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || "Schemata konnten nicht geladen werden.");
+    }
+
+    entryTypeSelect.innerHTML = "";
+    schemaMap = new Map();
+
+    for (const schema of data.schemas || []) {
+      schemaMap.set(schema.id, schema);
+      const option = document.createElement("option");
+      option.value = schema.id;
+      option.textContent = schema.label;
+      entryTypeSelect.appendChild(option);
+    }
+
+    const initialType = data.defaultEntryType || entryTypeSelect.value;
+    if (!schemaMap.has(initialType)) {
+      throw new Error("Kein gueltiges Standard-Schema gefunden.");
+    }
+
+    entryTypeSelect.value = initialType;
+    renderSchema(schemaMap.get(initialType));
+  }
+
+  function payloadFromForm() {
+    if (!currentSchema) {
+      throw new Error("Kein aktives Schema geladen.");
+    }
+
+    const fields = {};
+    for (const field of currentSchema.fields || []) {
+      const input = getFieldElement(field.name);
+      if (!input) {
+        continue;
       }
 
-      body {
-        margin: 0;
-        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-        background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 30%);
-        color: var(--text);
+      if (field.input === "number") {
+        const raw = String(input.value || "").trim();
+        fields[field.name] = raw === "" ? null : Number(raw);
+      } else {
+        fields[field.name] = String(input.value || "");
+      }
+    }
+
+    if ((!fields.slug || fields.slug.trim() === "") && fields.title) {
+      fields.slug = slugify(fields.title);
+      const slugInput = getFieldElement("slug");
+      if (slugInput) {
+        slugInput.value = fields.slug;
+      }
+    }
+
+    if (isEditMode && editTarget) {
+      fields.slug = editTarget.slug;
+    }
+
+    const overwrite = isEditMode
+      ? true
+      : new FormData(form).get("overwrite") === "on";
+
+    return {
+      entryType: entryTypeSelect.value,
+      fields,
+      overwrite,
+    };
+  }
+
+  entryTypeSelect.addEventListener("change", () => {
+    if (isEditMode) {
+      return;
+    }
+
+    const schema = schemaMap.get(entryTypeSelect.value);
+    if (schema) {
+      renderSchema(schema);
+    }
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setStatus("Speichere...", null);
+    submitBtn.disabled = true;
+
+    try {
+      const payload = payloadFromForm();
+
+      const response = await fetch("/admin-api/entries", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Unbekannter Fehler");
       }
 
-      .wrap {
-        max-width: 920px;
-        margin: 2rem auto;
-        padding: 0 1rem 2rem;
-      }
+      const deployMessage = buildDeployMessage(
+        data,
+        isEditMode ? "Eintrag" : "Eintrag"
+      );
 
-      .card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        box-shadow: 0 16px 32px rgba(19, 72, 201, 0.08);
-        padding: 1.25rem;
-      }
-
-      h1 {
-        margin: 0 0 0.6rem;
-        font-size: 1.6rem;
-      }
-
-      p {
-        margin: 0;
-        color: var(--muted);
-      }
-
-      form {
-        margin-top: 1.25rem;
-        display: grid;
-        gap: 1rem;
-      }
-
-      .grid-2 {
-        display: grid;
-        gap: 1rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .grid-3 {
-        display: grid;
-        gap: 1rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .fields-grid {
-        display: grid;
-        gap: 1rem;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-      }
-
-      .field {
-        display: grid;
-        gap: 0.4rem;
-        font-weight: 600;
-        font-size: 0.92rem;
-        grid-column: span 6;
-      }
-
-      .field.width-half {
-        grid-column: span 3;
-      }
-
-      .field.width-third {
-        grid-column: span 2;
-      }
-
-      label {
-        display: grid;
-        gap: 0.4rem;
-        font-weight: 600;
-        font-size: 0.92rem;
-      }
-
-      input,
-      select,
-      textarea,
-      button {
-        width: 100%;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        padding: 0.65rem 0.75rem;
-        font: inherit;
-      }
-
-      textarea {
-        min-height: 300px;
-        resize: vertical;
-      }
-
-      button {
-        width: auto;
-        background: var(--primary);
-        color: #fff;
-        border: 0;
-        font-weight: 700;
-        cursor: pointer;
-        padding: 0.72rem 1rem;
-      }
-
-      button:disabled {
-        opacity: 0.6;
-        cursor: wait;
-      }
-
-      .actions {
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-      }
-
-      .actions button.danger {
-        background: var(--danger);
-      }
-
-      .status {
-        min-height: 1.5rem;
-        font-size: 0.92rem;
-      }
-
-      .status.error {
-        color: var(--danger);
-      }
-
-      .status.success {
-        color: var(--success);
-      }
-
-      .hint {
-        font-size: 0.82rem;
-        color: var(--muted);
-      }
-
-      .checkbox {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 500;
-      }
-
-      .checkbox input {
-        width: 18px;
-        height: 18px;
-      }
-
-      @media (max-width: 720px) {
-        .grid-2,
-        .grid-3,
-        .fields-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .field,
-        .field.width-half,
-        .field.width-third {
-          grid-column: span 1;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <main class="wrap">
-      <section class="card">
-        <h1>Curriculum Admin</h1>
-        <p>Erstellt oder aktualisiert Eintraege in <code>content/</code> (oder <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) und startet danach einen Eleventy-Build.</p>
-
-        <form id="entry-form">
-          <div class="grid-2">
-            <label>
-              Typ
-              <select id="entry-type" name="entryType" required></select>
-            </label>
-
-            <p class="hint">Felder werden aus YAML-Schemata geladen.</p>
-          </div>
-
-          <div id="fields-root" class="fields-grid"></div>
-
-          <label class="checkbox">
-            <input type="checkbox" name="overwrite" />
-            Bestehende Datei mit gleichem Slug ueberschreiben
-          </label>
-
-          <div class="actions">
-            <button id="submit-btn" type="submit">Speichern</button>
-            <button id="delete-btn" class="danger" type="button" hidden>Loeschen</button>
-            <div id="status" class="status"></div>
-          </div>
-        </form>
-      </section>
-    </main>
-
-    <script>
-      const form = document.getElementById("entry-form");
-      const statusEl = document.getElementById("status");
-      const submitBtn = document.getElementById("submit-btn");
-      const deleteBtn = document.getElementById("delete-btn");
-      const entryTypeSelect = document.getElementById("entry-type");
-      const fieldsRoot = document.getElementById("fields-root");
-      const overwriteCheckbox = form.querySelector('input[name="overwrite"]');
-      const overwriteLabel = overwriteCheckbox?.closest(".checkbox");
-      const urlParams = new URLSearchParams(window.location.search);
-      const requestedEntryType = sanitizeEntryType(urlParams.get("entryType"));
-      const requestedSlug = slugify(urlParams.get("slug"));
-      const isEditMode = Boolean(requestedEntryType && requestedSlug);
-      const editTarget = isEditMode
-        ? { entryType: requestedEntryType, slug: requestedSlug }
-        : null;
-      let slugWasEdited = false;
-      let schemaMap = new Map();
-      let currentSchema = null;
-
-      function slugify(value) {
-        return String(value || "")
-          .toLowerCase()
-          .trim()
-          .replace(/[^a-z0-9_-]+/g, "-")
-          .replace(/^[-_]+|[-_]+$/g, "");
-      }
-
-      function sanitizeEntryType(value) {
-        return String(value || "")
-          .toLowerCase()
-          .trim()
-          .replace(/[^a-z0-9_-]+/g, "-")
-          .replace(/^-+|-+$/g, "");
-      }
-
-      function setStatus(message, type) {
-        statusEl.className = "status";
-        if (type) {
-          statusEl.classList.add(type);
-        }
-        statusEl.textContent = message;
-      }
-
-      function fieldInputElement(field, elementId) {
-        if (field.input === "textarea") {
-          const textarea = document.createElement("textarea");
-          textarea.id = elementId;
-          textarea.name = field.name;
-          if (field.rows) {
-            textarea.rows = field.rows;
-          }
-          if (field.placeholder) {
-            textarea.placeholder = field.placeholder;
-          }
-          if (field.name === "content") {
-            textarea.style.minHeight = "300px";
-          } else if (field.name === "description") {
-            textarea.style.minHeight = "100px";
-          }
-          return textarea;
-        }
-
-        if (field.input === "select") {
-          const select = document.createElement("select");
-          select.id = elementId;
-          select.name = field.name;
-          for (const option of field.options || []) {
-            const opt = document.createElement("option");
-            opt.value = option.value;
-            opt.textContent = option.label;
-            select.appendChild(opt);
-          }
-          return select;
-        }
-
-        const input = document.createElement("input");
-        input.id = elementId;
-        input.name = field.name;
-        input.type = field.input === "number" ? "number" : "text";
-        if (field.input === "number" && Number.isFinite(field.min)) {
-          input.min = String(field.min);
-        }
-        if (field.placeholder) {
-          input.placeholder = field.placeholder;
-        }
-        return input;
-      }
-
-      function createField(field) {
-        const elementId = `field-${field.name}`;
-        const wrapper = document.createElement("label");
-        wrapper.className = `field width-${field.width || "full"}`;
-
-        const title = document.createTextNode(field.label);
-        wrapper.appendChild(title);
-
-        const control = fieldInputElement(field, elementId);
-        control.dataset.fieldName = field.name;
-        control.required = field.required === true;
-        wrapper.appendChild(control);
-
-        if (field.hint) {
-          const hint = document.createElement("span");
-          hint.className = "hint";
-          hint.textContent = field.hint;
-          wrapper.appendChild(hint);
-        }
-
-        return wrapper;
-      }
-
-      function getFieldElement(fieldName) {
-        return fieldsRoot.querySelector(`[data-field-name="${fieldName}"]`);
-      }
-
-      function connectSlugAutofill() {
-        if (isEditMode) {
-          slugWasEdited = true;
-          return;
-        }
-
-        slugWasEdited = false;
-        const titleInput = getFieldElement("title");
-        const slugInput = getFieldElement("slug");
-        if (!titleInput || !slugInput) {
-          return;
-        }
-
-        titleInput.addEventListener("input", () => {
-          if (!slugWasEdited) {
-            slugInput.value = slugify(titleInput.value);
-          }
-        });
-
-        slugInput.addEventListener("input", () => {
-          slugWasEdited = slugInput.value.trim().length > 0;
-        });
-      }
-
-      function renderSchema(schema) {
-        currentSchema = schema;
-        fieldsRoot.innerHTML = "";
-        for (const field of schema.fields || []) {
-          fieldsRoot.appendChild(createField(field));
-        }
-        connectSlugAutofill();
-      }
-
-      function applyFieldValues(values) {
-        for (const field of currentSchema?.fields || []) {
-          const input = getFieldElement(field.name);
-          if (!input) {
-            continue;
-          }
-
-          const value = values[field.name];
-          input.value = value === null || value === undefined ? "" : String(value);
-        }
-      }
-
-      function buildDeployMessage(data, mode) {
-        const sync = data.build?.sync;
-        let buildText = "Build erfolgreich.";
-        let statusType = "success";
-
-        if (!data.build?.ok) {
-          buildText = `${mode} gespeichert, Build fehlgeschlagen.`;
-          statusType = "error";
-        } else if (sync && !sync.ok && !sync.skipped) {
-          buildText =
-            "Build erfolgreich, Sync nach BLENDER_CURRICULUM_WEB_ROOT fehlgeschlagen.";
-          statusType = "error";
-        } else if (sync && sync.ok && !sync.skipped) {
-          buildText = "Build und Sync erfolgreich.";
-        } else if (sync && sync.skipped) {
-          buildText =
-            "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
-        }
-
-        return {
-          text: buildText,
-          statusType,
-        };
-      }
-
-      async function loadEntryForEdit(entryType, slug) {
-        const response = await fetch(
-          `/admin-api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(slug)}`
+      const shouldRedirect = data.deployOk === true;
+      if (shouldRedirect) {
+        setStatus(
+          `Gespeichert: ${data.file}. ${deployMessage.text} Weiterleitung...`,
+          deployMessage.statusType
         );
-        const data = await response.json();
-
-        if (!response.ok || !data.ok) {
-          throw new Error(data.error || "Eintrag konnte nicht geladen werden.");
-        }
-
-        if (!schemaMap.has(data.entryType)) {
-          throw new Error(`Schema "${data.entryType}" ist nicht verfuegbar.`);
-        }
-
-        if (entryTypeSelect.value !== data.entryType) {
-          entryTypeSelect.value = data.entryType;
-          renderSchema(schemaMap.get(data.entryType));
-        }
-
-        applyFieldValues(data.fields || {});
-
-        const slugInput = getFieldElement("slug");
-        if (slugInput) {
-          slugInput.value = data.slug || slug;
-          slugInput.readOnly = true;
-        }
-
-        submitBtn.textContent = "Speichern";
-        if (overwriteCheckbox) {
-          overwriteCheckbox.checked = true;
-        }
-        if (overwriteLabel) {
-          overwriteLabel.hidden = true;
-        }
-
-        entryTypeSelect.disabled = true;
-        deleteBtn.hidden = false;
-        setStatus(`Bearbeite: ${data.file}`, null);
-      }
-
-      async function loadSchemas() {
-        const response = await fetch("/admin-api/schemas");
-        const data = await response.json();
-
-        if (!response.ok || !data.ok) {
-          throw new Error(data.error || "Schemata konnten nicht geladen werden.");
-        }
-
-        entryTypeSelect.innerHTML = "";
-        schemaMap = new Map();
-
-        for (const schema of data.schemas || []) {
-          schemaMap.set(schema.id, schema);
-          const option = document.createElement("option");
-          option.value = schema.id;
-          option.textContent = schema.label;
-          entryTypeSelect.appendChild(option);
-        }
-
-        const initialType = data.defaultEntryType || entryTypeSelect.value;
-        if (!schemaMap.has(initialType)) {
-          throw new Error("Kein gueltiges Standard-Schema gefunden.");
-        }
-
-        entryTypeSelect.value = initialType;
-        renderSchema(schemaMap.get(initialType));
-      }
-
-      function payloadFromForm() {
-        if (!currentSchema) {
-          throw new Error("Kein aktives Schema geladen.");
-        }
-
-        const fields = {};
-        for (const field of currentSchema.fields || []) {
-          const input = getFieldElement(field.name);
-          if (!input) {
-            continue;
-          }
-
-          if (field.input === "number") {
-            const raw = String(input.value || "").trim();
-            fields[field.name] = raw === "" ? null : Number(raw);
-          } else {
-            fields[field.name] = String(input.value || "");
-          }
-        }
-
-        if ((!fields.slug || fields.slug.trim() === "") && fields.title) {
-          fields.slug = slugify(fields.title);
-          const slugInput = getFieldElement("slug");
-          if (slugInput) {
-            slugInput.value = fields.slug;
-          }
-        }
-
-        if (isEditMode && editTarget) {
-          fields.slug = editTarget.slug;
-        }
-
-        const overwrite = isEditMode
-          ? true
-          : new FormData(form).get("overwrite") === "on";
-
-        return {
-          entryType: entryTypeSelect.value,
-          fields,
-          overwrite,
-        };
-      }
-
-      entryTypeSelect.addEventListener("change", () => {
-        if (isEditMode) {
-          return;
-        }
-
-        const schema = schemaMap.get(entryTypeSelect.value);
-        if (schema) {
-          renderSchema(schema);
-        }
-      });
-
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        setStatus("Speichere...", null);
-        submitBtn.disabled = true;
-
-        try {
-          const payload = payloadFromForm();
-
-          const response = await fetch("/admin-api/entries", {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify(payload),
-          });
-
-          const data = await response.json();
-          if (!response.ok || !data.ok) {
-            throw new Error(data.error || "Unbekannter Fehler");
-          }
-
-          const deployMessage = buildDeployMessage(
-            data,
-            isEditMode ? "Eintrag" : "Eintrag"
-          );
-
-          const shouldRedirect = data.deployOk === true;
-          if (shouldRedirect) {
-            setStatus(
-              `Gespeichert: ${data.file}. ${deployMessage.text} Weiterleitung...`,
-              deployMessage.statusType
-            );
-          } else {
-            setStatus(
-              `Gespeichert: ${data.file}. ${deployMessage.text}`,
-              deployMessage.statusType
-            );
-          }
-
-          if (shouldRedirect && data.viewUrl) {
-            setTimeout(() => {
-              window.location.assign(data.viewUrl);
-            }, 300);
-          }
-        } catch (error) {
-          setStatus(error.message, "error");
-        } finally {
-          submitBtn.disabled = false;
-        }
-      });
-
-      deleteBtn.addEventListener("click", async () => {
-        if (!isEditMode || !editTarget) {
-          return;
-        }
-
-        const confirmed = window.confirm(
-          `Eintrag "${editTarget.slug}" wirklich loeschen?`
+      } else {
+        setStatus(
+          `Gespeichert: ${data.file}. ${deployMessage.text}`,
+          deployMessage.statusType
         );
-        if (!confirmed) {
-          return;
+      }
+
+      if (shouldRedirect && data.viewUrl) {
+        setTimeout(() => {
+          window.location.assign(data.viewUrl);
+        }, 300);
+      }
+    } catch (error) {
+      setStatus(error.message, "error");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  deleteBtn.addEventListener("click", async () => {
+    if (!isEditMode || !editTarget) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Eintrag "${editTarget.slug}" wirklich loeschen?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("Loesche...", null);
+    submitBtn.disabled = true;
+    deleteBtn.disabled = true;
+
+    try {
+      const response = await fetch(
+        `/admin-api/entries/${encodeURIComponent(editTarget.entryType)}/${encodeURIComponent(editTarget.slug)}`,
+        {
+          method: "DELETE",
         }
+      );
+      const data = await response.json();
 
-        setStatus("Loesche...", null);
-        submitBtn.disabled = true;
-        deleteBtn.disabled = true;
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Loeschen fehlgeschlagen.");
+      }
 
-        try {
-          const response = await fetch(
-            `/admin-api/entries/${encodeURIComponent(editTarget.entryType)}/${encodeURIComponent(editTarget.slug)}`,
-            {
-              method: "DELETE",
-            }
-          );
-          const data = await response.json();
+      const deployMessage = buildDeployMessage(data, "Eintrag");
+      const shouldRedirect = data.deployOk === true;
 
-          if (!response.ok || !data.ok) {
-            throw new Error(data.error || "Loeschen fehlgeschlagen.");
-          }
+      if (shouldRedirect) {
+        setStatus(
+          `Geloescht: ${data.file}. ${deployMessage.text} Weiterleitung...`,
+          deployMessage.statusType
+        );
+      } else {
+        setStatus(
+          `Geloescht: ${data.file}. ${deployMessage.text}`,
+          deployMessage.statusType
+        );
+      }
 
-          const deployMessage = buildDeployMessage(data, "Eintrag");
-          const shouldRedirect = data.deployOk === true;
+      if (shouldRedirect && data.listUrl) {
+        setTimeout(() => {
+          window.location.assign(data.listUrl);
+        }, 300);
+      }
+    } catch (error) {
+      setStatus(error.message, "error");
+    } finally {
+      submitBtn.disabled = false;
+      deleteBtn.disabled = false;
+    }
+  });
 
-          if (shouldRedirect) {
-            setStatus(
-              `Geloescht: ${data.file}. ${deployMessage.text} Weiterleitung...`,
-              deployMessage.statusType
-            );
-          } else {
-            setStatus(
-              `Geloescht: ${data.file}. ${deployMessage.text}`,
-              deployMessage.statusType
-            );
-          }
+  loadSchemas()
+    .then(async () => {
+      if (!isEditMode || !editTarget) {
+        return;
+      }
 
-          if (shouldRedirect && data.listUrl) {
-            setTimeout(() => {
-              window.location.assign(data.listUrl);
-            }, 300);
-          }
-        } catch (error) {
-          setStatus(error.message, "error");
-        } finally {
-          submitBtn.disabled = false;
-          deleteBtn.disabled = false;
-        }
-      });
+      if (!schemaMap.has(editTarget.entryType)) {
+        throw new Error(
+          `Unbekannter entryType "${editTarget.entryType}" in der URL.`
+        );
+      }
 
-      loadSchemas()
-        .then(async () => {
-          if (!isEditMode || !editTarget) {
-            return;
-          }
-
-          if (!schemaMap.has(editTarget.entryType)) {
-            throw new Error(
-              `Unbekannter entryType "${editTarget.entryType}" in der URL.`
-            );
-          }
-
-          entryTypeSelect.value = editTarget.entryType;
-          renderSchema(schemaMap.get(editTarget.entryType));
-          await loadEntryForEdit(editTarget.entryType, editTarget.slug);
-        })
-        .catch((error) => {
-          setStatus(error.message, "error");
-        });
-    </script>
-  </body>
-</html>
+      entryTypeSelect.value = editTarget.entryType;
+      renderSchema(schemaMap.get(editTarget.entryType));
+      await loadEntryForEdit(editTarget.entryType, editTarget.slug);
+    })
+    .catch((error) => {
+      setStatus(error.message, "error");
+    });
+</script>
