@@ -9,8 +9,8 @@
     {% set isEditableEntry = type == "Lesson" or type == "Task" or type == "Topic" %}
     {% include "navigation.njk" %}
     <div class="admin-links">
-      <a class="admin-link" href="/admin/">Login</a>
-      <span class="admin-user" data-user-name>Gast</span>
+      <a class="admin-link" data-admin-login-link href="/admin/">Login</a>
+      <span class="admin-user" data-user-name hidden></span>
       {% if isEditableEntry %}
         <a
           class="admin-link admin-link-edit is-hidden"
@@ -25,6 +25,7 @@
       (() => {
         const userNameEl = document.querySelector("[data-user-name]");
         const editLink = document.querySelector("[data-admin-edit-link]");
+        const loginLink = document.querySelector("[data-admin-login-link]");
 
         function setUserName(name) {
           if (!userNameEl) {
@@ -32,10 +33,22 @@
           }
 
           const normalizedName = String(name || "").trim();
-          userNameEl.textContent = normalizedName || "Gast";
+          const hasName = normalizedName.length > 0;
+          userNameEl.hidden = !hasName;
+          userNameEl.textContent = hasName ? normalizedName : "";
         }
 
-        setUserName(window.currentUser?.name);
+        function setLoggedInState(isLoggedIn) {
+          if (!loginLink) {
+            return;
+          }
+
+          loginLink.classList.toggle("is-hidden", Boolean(isLoggedIn));
+        }
+
+        const initialUserName = String(window.currentUser?.name || "").trim();
+        setUserName(initialUserName);
+        setLoggedInState(Boolean(initialUserName));
 
         const currentPath = window.location.pathname || "";
         const isAdminContext =
@@ -63,6 +76,8 @@
             if (payload?.user?.name) {
               setUserName(payload.user.name);
             }
+
+            setLoggedInState(Boolean(payload?.user?.name));
 
             if (editLink) {
               editLink.classList.remove("is-hidden");
