@@ -230,11 +230,11 @@ Notes:
 Nginx should protect these endpoints:
 
 - `/admin/`
-- `/admin-api/`
+- `/admin/api/`
 
-Additionally expose `/api/session` for frontend login-state checks.
-It should not trigger a browser auth prompt for anonymous visitors and should
-return a JSON fallback with `loggedIn: false`.
+The frontend login-state check should use `/admin/api/session`.
+This endpoint should not trigger a browser auth prompt for anonymous visitors
+and should return a JSON fallback with `loggedIn: false`.
 
 Example snippet:
 
@@ -243,38 +243,38 @@ location = /admin {
   return 301 /admin/;
 }
 
+location = /admin/api/session {
+  auth_basic "Admin";
+  auth_basic_user_file /etc/nginx/.htpasswd;
+  error_page 401 = @admin_api_session_anonymous;
+  proxy_pass http://127.0.0.1:8787/admin/api/session;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Remote-User $remote_user;
+}
+
+location /admin/api/ {
+  auth_basic "Admin";
+  auth_basic_user_file /etc/nginx/.htpasswd;
+  proxy_pass http://127.0.0.1:8787/admin/api/;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Remote-User $remote_user;
+}
+
 location /admin/ {
   auth_basic "Admin";
   auth_basic_user_file /etc/nginx/.htpasswd;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Remote-User $remote_user;
   proxy_pass http://127.0.0.1:8787/admin/;
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-  proxy_set_header X-Remote-User $remote_user;
 }
 
-location /admin-api/ {
-  auth_basic "Admin";
-  auth_basic_user_file /etc/nginx/.htpasswd;
-  proxy_pass http://127.0.0.1:8787/admin-api/;
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-  proxy_set_header X-Remote-User $remote_user;
-}
-
-location = /api/session {
-  auth_basic "Admin";
-  auth_basic_user_file /etc/nginx/.htpasswd;
-  error_page 401 = @api_session_anonymous;
-  proxy_pass http://127.0.0.1:8787/api/session;
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-  proxy_set_header X-Remote-User $remote_user;
-}
-
-location @api_session_anonymous {
+location @admin_api_session_anonymous {
   default_type application/json;
   add_header Cache-Control "no-store";
   return 200 '{"ok":true,"loggedIn":false,"user":{"name":""}}';

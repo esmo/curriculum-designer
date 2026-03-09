@@ -220,7 +220,7 @@
 
   async function loadEntryForEdit(entryType, slug) {
     const response = await fetch(
-      `/admin-api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(slug)}`
+      `/admin/api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(slug)}`
     );
     const data = await response.json();
 
@@ -259,7 +259,7 @@
   }
 
   async function loadSchemas() {
-    const response = await fetch("/admin-api/schemas");
+    const response = await fetch("/admin/api/schemas");
     const data = await response.json();
 
     if (!response.ok || !data.ok) {
@@ -348,7 +348,7 @@
     try {
       const payload = payloadFromForm();
 
-      const response = await fetch("/admin-api/entries", {
+      const response = await fetch("/admin/api/entries", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -409,7 +409,7 @@
 
     try {
       const response = await fetch(
-        `/admin-api/entries/${encodeURIComponent(editTarget.entryType)}/${encodeURIComponent(editTarget.slug)}`,
+        `/admin/api/entries/${encodeURIComponent(editTarget.entryType)}/${encodeURIComponent(editTarget.slug)}`,
         {
           method: "DELETE",
         }

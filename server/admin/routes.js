@@ -33,7 +33,7 @@ function registerRoutes(app, input) {
     reply.redirect("/admin/");
   });
 
-  app.get("/api/session", async (request) => {
+  app.get("/admin/api/session", async (request) => {
     const userName = auth.requestRemoteUser(request) || "";
     return {
       ok: true,
@@ -44,14 +44,14 @@ function registerRoutes(app, input) {
     };
   });
 
-  app.get("/admin-api/schemas", { preHandler: auth.requireProxyAuth }, async () => ({
+  app.get("/admin/api/schemas", { preHandler: auth.requireProxyAuth }, async () => ({
     ok: true,
     defaultEntryType: schemaService.getDefaultEntryType(),
     schemas: schemaService.getPublicSchemas(),
   }));
 
   app.get(
-    "/admin-api/entries/:entryType/:slug",
+    "/admin/api/entries/:entryType/:slug",
     {
       preHandler: auth.requireProxyAuth,
     },
@@ -66,7 +66,7 @@ function registerRoutes(app, input) {
   );
 
   app.post(
-    "/admin-api/entries",
+    "/admin/api/entries",
     {
       preHandler: auth.requireProxyAuth,
     },
@@ -84,7 +84,7 @@ function registerRoutes(app, input) {
   );
 
   app.delete(
-    "/admin-api/entries/:entryType/:slug",
+    "/admin/api/entries/:entryType/:slug",
     {
       preHandler: auth.requireProxyAuth,
     },
