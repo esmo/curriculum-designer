@@ -37,6 +37,16 @@
 
         setUserName(window.currentUser?.name);
 
+        const currentPath = window.location.pathname || "";
+        const isAdminContext =
+          currentPath === "/admin" ||
+          currentPath.startsWith("/admin/") ||
+          currentPath.startsWith("/admin-api/");
+
+        if (!isAdminContext) {
+          return;
+        }
+
         fetch("/admin-api/health", { credentials: "same-origin" })
           .then(async (response) => {
             if (!response.ok) {
