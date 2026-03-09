@@ -26,6 +26,7 @@
         const userNameEl = document.querySelector("[data-user-name]");
         const editLink = document.querySelector("[data-admin-edit-link]");
         const loginLink = document.querySelector("[data-admin-login-link]");
+        const createItem = document.querySelector("[data-admin-create-item]");
 
         function setUserName(name) {
           if (!userNameEl) {
@@ -39,30 +40,33 @@
         }
 
         function setLoggedInState(isLoggedIn) {
-          if (!loginLink) {
-            return;
+          const loggedIn = Boolean(isLoggedIn);
+
+          if (loginLink) {
+            loginLink.classList.toggle("is-hidden", loggedIn);
           }
 
-          loginLink.classList.toggle("is-hidden", Boolean(isLoggedIn));
+          if (editLink) {
+            editLink.classList.toggle("is-hidden", !loggedIn);
+          }
+
+          if (createItem) {
+            createItem.classList.toggle("is-hidden", !loggedIn);
+          }
+
+          if (!loggedIn) {
+            setUserName("");
+          }
         }
 
         const initialUserName = String(window.currentUser?.name || "").trim();
         setUserName(initialUserName);
         setLoggedInState(Boolean(initialUserName));
 
-        const currentPath = window.location.pathname || "";
-        const isAdminContext =
-          currentPath === "/admin" ||
-          currentPath.startsWith("/admin/") ||
-          currentPath.startsWith("/admin-api/");
-
-        if (!isAdminContext) {
-          return;
-        }
-
-        fetch("/admin-api/health", { credentials: "same-origin" })
+        fetch("/admin-api/session", { credentials: "same-origin" })
           .then(async (response) => {
             if (!response.ok) {
+              setLoggedInState(false);
               return;
             }
 
@@ -73,17 +77,15 @@
               payload = null;
             }
 
-            if (payload?.user?.name) {
-              setUserName(payload.user.name);
-            }
+            const userName = String(payload?.user?.name || "").trim();
+            const isLoggedIn = Boolean(payload?.loggedIn) || Boolean(userName);
 
-            setLoggedInState(Boolean(payload?.user?.name));
-
-            if (editLink) {
-              editLink.classList.remove("is-hidden");
-            }
+            setUserName(userName);
+            setLoggedInState(isLoggedIn);
           })
-          .catch(() => {});
+          .catch(() => {
+            setLoggedInState(false);
+          });
       })();
     </script>
   </body>

@@ -124,6 +124,10 @@ nav ul li {
     /* float: left; */
 }
 
+nav ul li.is-hidden {
+    display: none;
+}
+
 /* Link styling */
 nav ul li a {
     display: block; /* Allows padding to increase clickable area */

@@ -33,12 +33,16 @@ function registerRoutes(app, input) {
     reply.redirect("/admin/");
   });
 
-  app.get("/admin-api/health", { preHandler: auth.requireProxyAuth }, async (request) => ({
-    ok: true,
-    user: {
-      name: auth.requestRemoteUser(request) || "",
-    },
-  }));
+  app.get("/admin-api/session", async (request) => {
+    const userName = auth.requestRemoteUser(request) || "";
+    return {
+      ok: true,
+      loggedIn: Boolean(userName),
+      user: {
+        name: userName,
+      },
+    };
+  });
 
   app.get("/admin-api/schemas", { preHandler: auth.requireProxyAuth }, async () => ({
     ok: true,
