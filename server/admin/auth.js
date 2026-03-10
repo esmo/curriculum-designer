@@ -1,19 +1,11 @@
 "use strict";
 
 const { sanitizeSingleLine } = require("./lib/content-utils");
+const { isArgon2idHash, verifyPassword } = require("./password-hash");
+const { configError, readAdminUserFile } = require("./user-file");
 
 function createAuth(input) {
-  const { requireProxyAuth, adminCredentials } = input;
-  const credentialMap = new Map();
-
-  for (const credential of adminCredentials || []) {
-    const username = sanitizeSingleLine(credential?.username);
-    const password = String(credential?.password || "");
-    if (!username || !password) {
-      continue;
-    }
-    credentialMap.set(username, password);
-  }
+  const { requireProxyAuth, adminUserFile } = input;
 
   function requestSessionUser(request) {
     return sanitizeSingleLine(request.session?.user?.name);
@@ -36,22 +28,56 @@ function createAuth(input) {
     return "";
   }
 
-  function hasLocalCredentials() {
-    return credentialMap.size > 0;
+  function hasLocalUserFile() {
+    return Boolean(adminUserFile);
   }
 
-  function verifyCredentials(username, password) {
+  async function verifyCredentials(username, password) {
     const normalizedUser = sanitizeSingleLine(username);
     if (!normalizedUser) {
       return false;
     }
 
-    const expectedPassword = credentialMap.get(normalizedUser);
-    if (!expectedPassword) {
+    if (!hasLocalUserFile()) {
       return false;
     }
 
-    return String(password || "") === expectedPassword;
+    const { users } = await readAdminUserFile(adminUserFile);
+    const entry = users.get(normalizedUser);
+    if (!entry) {
+      return false;
+    }
+
+    if (!isArgon2idHash(entry.passwordHash)) {
+      throw configError(
+        `Unsupported hash format for user "${normalizedUser}" in ${adminUserFile}. Expected an argon2id hash.`
+      );
+    }
+
+    return verifyPassword(entry.passwordHash, password);
+  }
+
+  async function validateLocalAuthConfig() {
+    if (!hasLocalUserFile()) {
+      throw configError(
+        "No admin user file configured. Set BLENDER_CURRICULUM_ADMIN_USER_FILE."
+      );
+    }
+
+    const { users } = await readAdminUserFile(adminUserFile);
+    if (users.size < 1) {
+      throw configError(
+        `Admin user file ${adminUserFile} does not contain any users.`
+      );
+    }
+
+    for (const [userName, entry] of users.entries()) {
+      if (!isArgon2idHash(entry.passwordHash)) {
+        throw configError(
+          `Unsupported hash format for user "${userName}" in ${adminUserFile}. Expected an argon2id hash.`
+        );
+      }
+    }
   }
 
   function setSessionUser(request, userName) {
@@ -95,12 +121,13 @@ function createAuth(input) {
 
   return {
     clearSession,
-    hasLocalCredentials,
+    hasLocalUserFile,
     requestAuthUser,
     requestRemoteUser,
     requestSessionUser,
     requireAdminAuth,
     setSessionUser,
+    validateLocalAuthConfig,
     verifyCredentials,
   };
 }

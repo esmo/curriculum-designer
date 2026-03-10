@@ -31,12 +31,12 @@ function createAdminApp(config) {
 
   const auth = createAuth({
     requireProxyAuth: config.requireProxyAuth,
-    adminCredentials: config.adminCredentials,
+    adminUserFile: config.adminUserFile,
   });
 
-  if (!config.requireProxyAuth && !auth.hasLocalCredentials()) {
+  if (!config.requireProxyAuth && !auth.hasLocalUserFile()) {
     throw new Error(
-      "No admin credentials configured. Set BLENDER_CURRICULUM_ADMIN_USERNAME and BLENDER_CURRICULUM_ADMIN_PASSWORD (or BLENDER_CURRICULUM_ADMIN_USERS)."
+      "No admin user file configured. Set BLENDER_CURRICULUM_ADMIN_USER_FILE."
     );
   }
 
@@ -68,6 +68,9 @@ function createAdminApp(config) {
 
   async function start() {
     await schemaService.loadEntrySchemas();
+    if (!config.requireProxyAuth) {
+      await auth.validateLocalAuthConfig();
+    }
 
     await app.listen({
       host: config.adminHost,
@@ -83,7 +86,7 @@ function createAdminApp(config) {
     app.log.info({
       adminUrl: `http://${config.adminHost}:${config.adminPort}/admin/`,
       requireProxyAuth: config.requireProxyAuth,
-      localCredentialCount: config.adminCredentials.length,
+      adminUserFile: config.adminUserFile || null,
       contentRoot: config.contentRoot,
       webRoot: config.webRoot || null,
       syncToWebRoot: Boolean(config.webRoot),

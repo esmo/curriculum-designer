@@ -41,43 +41,6 @@ function parsePositiveInteger(value, fallback) {
   return parsed;
 }
 
-function parseAdminCredentials(env) {
-  const credentialsByUser = new Map();
-  const listRaw = String(env.BLENDER_CURRICULUM_ADMIN_USERS || "");
-  for (const token of listRaw.split(/[\n,;]+/)) {
-    const normalizedToken = String(token || "").trim();
-    if (!normalizedToken) {
-      continue;
-    }
-
-    const separatorIndex = normalizedToken.indexOf(":");
-    if (separatorIndex <= 0) {
-      continue;
-    }
-
-    const username = sanitizeSingleLine(normalizedToken.slice(0, separatorIndex));
-    const password = String(normalizedToken.slice(separatorIndex + 1) || "");
-    if (!username || !password) {
-      continue;
-    }
-
-    credentialsByUser.set(username, password);
-  }
-
-  const singleUsername = sanitizeSingleLine(
-    env.BLENDER_CURRICULUM_ADMIN_USERNAME
-  );
-  const singlePassword = String(env.BLENDER_CURRICULUM_ADMIN_PASSWORD || "");
-  if (singleUsername && singlePassword) {
-    credentialsByUser.set(singleUsername, singlePassword);
-  }
-
-  return Array.from(credentialsByUser.entries()).map(([username, password]) => ({
-    username,
-    password,
-  }));
-}
-
 function resolveSessionSecret(value) {
   const rawSecret = String(value || "").trim();
   if (!rawSecret) {
@@ -126,7 +89,9 @@ function loadConfig(env = process.env) {
     adminPort: Number.parseInt(env.BLENDER_CURRICULUM_ADMIN_PORT || "8787", 10),
     adminHost: env.BLENDER_CURRICULUM_ADMIN_HOST || "127.0.0.1",
     requireProxyAuth: parseBoolean(env.BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH, false),
-    adminCredentials: parseAdminCredentials(env),
+    adminUserFile: sanitizeSingleLine(env.BLENDER_CURRICULUM_ADMIN_USER_FILE)
+      ? path.resolve(env.BLENDER_CURRICULUM_ADMIN_USER_FILE)
+      : "",
     sessionSecret,
     usingDefaultSessionSecret,
     sessionCookieName:

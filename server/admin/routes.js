@@ -51,25 +51,29 @@ function registerRoutes(app, input) {
   });
 
   app.post("/admin/login", async (request, reply) => {
-    if (!auth.hasLocalCredentials()) {
+    if (!auth.hasLocalUserFile()) {
       reply.code(503).send({
-        error: "No local admin credentials configured on the server.",
+        error: "No admin user file configured on the server.",
       });
       return;
     }
 
-    const username = request.body?.username;
-    const password = request.body?.password;
-    if (!auth.verifyCredentials(username, password)) {
-      reply.code(401).send({
-        error: "Invalid username or password.",
-      });
-      return;
-    }
+    try {
+      const username = request.body?.username;
+      const password = request.body?.password;
+      if (!(await auth.verifyCredentials(username, password))) {
+        reply.code(401).send({
+          error: "Invalid username or password.",
+        });
+        return;
+      }
 
-    auth.setSessionUser(request, username);
-    reply.header("cache-control", "no-store");
-    return sessionPayload(auth.requestSessionUser(request));
+      auth.setSessionUser(request, username);
+      reply.header("cache-control", "no-store");
+      return sessionPayload(auth.requestSessionUser(request));
+    } catch (error) {
+      sendError(reply, error);
+    }
   });
 
   app.post("/admin/logout", async (request, reply) => {

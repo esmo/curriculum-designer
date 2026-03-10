@@ -36,6 +36,8 @@ set -a
 source /etc/blender-curriculum/deploy.env
 set +a
 /srv/blender-curriculum/repo/ops/deploy-pull.sh
+cd /srv/blender-curriculum/repo
+npm run admin:users -- set /etc/blender-curriculum/admin-users.txt admin
 ```
 
 `ops/install-server.sh` also creates `$REPO_DIR/.envrc` by default
@@ -96,9 +98,7 @@ Install-script specific variables:
 Admin runtime variables:
 
 - `BLENDER_CURRICULUM_SCHEMA_ROOT`
-- `BLENDER_CURRICULUM_ADMIN_USERNAME`
-- `BLENDER_CURRICULUM_ADMIN_PASSWORD`
-- `BLENDER_CURRICULUM_ADMIN_USERS`
+- `BLENDER_CURRICULUM_ADMIN_USER_FILE`
 - `BLENDER_CURRICULUM_SESSION_SECRET`
 - `BLENDER_CURRICULUM_SESSION_COOKIE_NAME`
 - `BLENDER_CURRICULUM_SESSION_COOKIE_SECURE`
@@ -141,8 +141,7 @@ BLENDER_CURRICULUM_THEME_ROOT=/srv/blender-curriculum/repo/theme
 BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content
 BLENDER_CURRICULUM_ADMIN_HOST=127.0.0.1
 BLENDER_CURRICULUM_ADMIN_PORT=8787
-BLENDER_CURRICULUM_ADMIN_USERNAME=admin
-BLENDER_CURRICULUM_ADMIN_PASSWORD=change-me
+BLENDER_CURRICULUM_ADMIN_USER_FILE=/etc/blender-curriculum/admin-users.txt
 BLENDER_CURRICULUM_SESSION_SECRET=change-me-to-a-long-random-string
 BLENDER_CURRICULUM_SESSION_COOKIE_SECURE=auto
 # Optional:
@@ -193,6 +192,43 @@ Admin save behavior:
 - writes `created_by`/`created_at` on create and keeps them on update
 - writes `updated_by`/`updated_at` on every save
 - redirects to the saved page after successful save + build (and sync, if enabled)
+
+## Admin User File
+
+Local admin logins are read from `BLENDER_CURRICULUM_ADMIN_USER_FILE`.
+The file format is:
+
+```txt
+admin:$argon2id$...
+editor:$argon2id$...
+```
+
+Rules:
+
+- one user per line
+- format: `username:hash`
+- hashes must be `argon2id`
+- blank lines and lines starting with `#` are ignored
+- changes to the file are picked up on the next login attempt; no admin-server restart is required
+
+Manage users with the included CLI:
+
+```bash
+cd /srv/blender-curriculum/repo
+npm run admin:users -- set /etc/blender-curriculum/admin-users.txt admin
+npm run admin:users -- set /etc/blender-curriculum/admin-users.txt editor
+npm run admin:users -- list /etc/blender-curriculum/admin-users.txt
+npm run admin:users -- delete /etc/blender-curriculum/admin-users.txt editor
+```
+
+The `set` command prompts for a password, hashes it with `argon2id`, and updates the file in place.
+
+Recommended permissions:
+
+```bash
+sudo chown deploy:deploy /etc/blender-curriculum/admin-users.txt
+sudo chmod 600 /etc/blender-curriculum/admin-users.txt
+```
 
 ## Admin Schemas
 

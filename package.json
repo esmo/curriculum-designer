@@ -5,6 +5,7 @@
     "watch": "onchange 'theme/**/*' 'content/**/*' -- npm-run-all clean build",
     "serve": "npm run build && browser-sync start --server build/ --files 'build/**/*' --no-notify",
     "admin": "node server/admin-server.js",
+    "admin:users": "node server/admin-users.js",
     "start": "npm-run-all clean build --parallel watch serve",
     "start:admin": "npm-run-all clean build --parallel watch serve admin"
   },
@@ -22,6 +23,7 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/session": "^11.1.1",
     "@fastify/static": "^9.0.0",
+    "argon2": "^0.44.0",
     "fastify": "^5.7.4"
   }
 }
