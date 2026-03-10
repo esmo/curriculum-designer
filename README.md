@@ -92,12 +92,19 @@ Install-script specific variables:
 - `BLENDER_CURRICULUM_ADMIN_PORT`
 - `BLENDER_CURRICULUM_SYSTEMD_UNIT_NAME`
 - `BLENDER_CURRICULUM_NGINX_SNIPPET_NAME`
-- `BLENDER_CURRICULUM_NGINX_HTPASSWD_PATH`
 
-Admin runtime variable:
+Admin runtime variables:
 
-- `BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH`
 - `BLENDER_CURRICULUM_SCHEMA_ROOT`
+- `BLENDER_CURRICULUM_ADMIN_USERNAME`
+- `BLENDER_CURRICULUM_ADMIN_PASSWORD`
+- `BLENDER_CURRICULUM_ADMIN_USERS`
+- `BLENDER_CURRICULUM_SESSION_SECRET`
+- `BLENDER_CURRICULUM_SESSION_COOKIE_NAME`
+- `BLENDER_CURRICULUM_SESSION_COOKIE_SECURE`
+- `BLENDER_CURRICULUM_SESSION_TTL_SECONDS`
+
+`BLENDER_CURRICULUM_SESSION_SECRET` must be at least 32 characters long.
 
 ## Deployment Model
 
@@ -132,6 +139,12 @@ BLENDER_CURRICULUM_WEB_ROOT=/var/www/blender-curriculum
 BLENDER_CURRICULUM_BRANCH=main
 BLENDER_CURRICULUM_THEME_ROOT=/srv/blender-curriculum/repo/theme
 BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content
+BLENDER_CURRICULUM_ADMIN_HOST=127.0.0.1
+BLENDER_CURRICULUM_ADMIN_PORT=8787
+BLENDER_CURRICULUM_ADMIN_USERNAME=admin
+BLENDER_CURRICULUM_ADMIN_PASSWORD=change-me
+BLENDER_CURRICULUM_SESSION_SECRET=change-me-to-a-long-random-string
+BLENDER_CURRICULUM_SESSION_COOKIE_SECURE=auto
 # Optional:
 # BLENDER_CURRICULUM_ADMIN_SERVICE=blender-curriculum-admin.service
 # BLENDER_CURRICULUM_ALLOW_DIRTY=false
@@ -147,7 +160,7 @@ sudo chmod 600 /etc/blender-curriculum/deploy.env
 ## Admin Server (Production)
 
 Do not use `npm run start:admin` on production servers.
-Use the admin process only (`npm run admin`) behind Nginx auth.
+Use the admin process only (`npm run admin`) behind an Nginx reverse proxy.
 
 Suggested `systemd` unit:
 
@@ -163,12 +176,7 @@ Type=simple
 User=deploy
 Group=deploy
 WorkingDirectory=/srv/blender-curriculum/repo
-Environment=BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH=true
-Environment=BLENDER_CURRICULUM_THEME_ROOT=/srv/blender-curriculum/repo/theme
-Environment=BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content
-Environment=BLENDER_CURRICULUM_WEB_ROOT=/var/www/blender-curriculum
-Environment=BLENDER_CURRICULUM_ADMIN_HOST=127.0.0.1
-Environment=BLENDER_CURRICULUM_ADMIN_PORT=8787
+EnvironmentFile=/etc/blender-curriculum/deploy.env
 ExecStart=/usr/bin/env npm run admin
 Restart=always
 RestartSec=3
@@ -225,16 +233,15 @@ Notes:
 - `content` is written as Markdown body, all other fields go to frontmatter.
 - use spaces (no tabs) and 2-space indentation in schema YAML files.
 
-## Nginx and Basic Auth
+## Nginx Reverse Proxy
 
-Nginx should protect these endpoints:
+Nginx should proxy the complete `/admin/*` namespace to the Fastify admin server.
+Authentication is handled by Fastify session endpoints:
 
-- `/admin/`
-- `/admin/api/`
-
-The frontend login-state check should use `/admin/session`.
-Use it as an unauthenticated status endpoint that reads an
-`bc_admin_user` cookie set on authenticated `/admin/` and `/admin/api/` requests.
+- `POST /admin/login`
+- `POST /admin/logout`
+- `GET /admin/session`
+- `GET|POST|DELETE /admin/api/*` (session-protected)
 
 Example snippet:
 
@@ -243,43 +250,12 @@ location = /admin {
   return 301 /admin/;
 }
 
-location = /admin/session {
-  proxy_pass http://127.0.0.1:8787/admin/session;
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-  proxy_set_header X-Admin-User $cookie_bc_admin_user;
-}
-
-location /admin/api/ {
-  auth_basic "Admin";
-  auth_basic_user_file /etc/nginx/.htpasswd;
-  proxy_pass http://127.0.0.1:8787/admin/api/;
-  add_header Set-Cookie "bc_admin_user=$remote_user; Path=/admin; HttpOnly; Secure; SameSite=Lax" always;
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-  proxy_set_header X-Remote-User $remote_user;
-}
-
 location /admin/ {
-  auth_basic "Admin";
-  auth_basic_user_file /etc/nginx/.htpasswd;
   proxy_pass http://127.0.0.1:8787/admin/;
-  add_header Set-Cookie "bc_admin_user=$remote_user; Path=/admin; HttpOnly; Secure; SameSite=Lax" always;
   proxy_set_header Host $host;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto $scheme;
-  proxy_set_header X-Remote-User $remote_user;
 }
-```
-
-Create users:
-
-```bash
-sudo apt-get install -y apache2-utils
-sudo htpasswd -c /etc/nginx/.htpasswd admin
-sudo htpasswd /etc/nginx/.htpasswd editor
 ```
 
 ## Why `build/` Is Kept As Staging

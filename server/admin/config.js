@@ -1,6 +1,103 @@
 "use strict";
 
 const path = require("path");
+const { sanitizeSingleLine } = require("./lib/content-utils");
+
+function parseBoolean(value, fallback = false) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+  return fallback;
+}
+
+function parseCookieSecure(value) {
+  if (typeof value !== "string") {
+    return "auto";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+  return "auto";
+}
+
+function parsePositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function parseAdminCredentials(env) {
+  const credentialsByUser = new Map();
+  const listRaw = String(env.BLENDER_CURRICULUM_ADMIN_USERS || "");
+  for (const token of listRaw.split(/[\n,;]+/)) {
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedToken) {
+      continue;
+    }
+
+    const separatorIndex = normalizedToken.indexOf(":");
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const username = sanitizeSingleLine(normalizedToken.slice(0, separatorIndex));
+    const password = String(normalizedToken.slice(separatorIndex + 1) || "");
+    if (!username || !password) {
+      continue;
+    }
+
+    credentialsByUser.set(username, password);
+  }
+
+  const singleUsername = sanitizeSingleLine(
+    env.BLENDER_CURRICULUM_ADMIN_USERNAME
+  );
+  const singlePassword = String(env.BLENDER_CURRICULUM_ADMIN_PASSWORD || "");
+  if (singleUsername && singlePassword) {
+    credentialsByUser.set(singleUsername, singlePassword);
+  }
+
+  return Array.from(credentialsByUser.entries()).map(([username, password]) => ({
+    username,
+    password,
+  }));
+}
+
+function resolveSessionSecret(value) {
+  const rawSecret = String(value || "").trim();
+  if (!rawSecret) {
+    return {
+      sessionSecret: "blender-curriculum-dev-session-secret-change-me-at-least-32",
+      usingDefaultSessionSecret: true,
+    };
+  }
+
+  if (rawSecret.length < 32) {
+    throw new Error(
+      "BLENDER_CURRICULUM_SESSION_SECRET must be at least 32 characters long."
+    );
+  }
+
+  return {
+    sessionSecret: rawSecret,
+    usingDefaultSessionSecret: false,
+  };
+}
 
 function loadConfig(env = process.env) {
   const rootDir = path.resolve(__dirname, "..", "..");
@@ -13,6 +110,10 @@ function loadConfig(env = process.env) {
   const schemaRoot = path.resolve(
     env.BLENDER_CURRICULUM_SCHEMA_ROOT || path.join(rootDir, "admin", "schemas")
   );
+  const {
+    sessionSecret,
+    usingDefaultSessionSecret,
+  } = resolveSessionSecret(env.BLENDER_CURRICULUM_SESSION_SECRET);
 
   return {
     rootDir,
@@ -24,7 +125,20 @@ function loadConfig(env = process.env) {
     rsyncBinary: "rsync",
     adminPort: Number.parseInt(env.BLENDER_CURRICULUM_ADMIN_PORT || "8787", 10),
     adminHost: env.BLENDER_CURRICULUM_ADMIN_HOST || "127.0.0.1",
-    requireProxyAuth: env.BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH === "true",
+    requireProxyAuth: parseBoolean(env.BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH, false),
+    adminCredentials: parseAdminCredentials(env),
+    sessionSecret,
+    usingDefaultSessionSecret,
+    sessionCookieName:
+      sanitizeSingleLine(env.BLENDER_CURRICULUM_SESSION_COOKIE_NAME) ||
+      "bc_admin_session",
+    sessionCookieSecure: parseCookieSecure(
+      env.BLENDER_CURRICULUM_SESSION_COOKIE_SECURE
+    ),
+    sessionTtlSeconds: parsePositiveInteger(
+      env.BLENDER_CURRICULUM_SESSION_TTL_SECONDS,
+      60 * 60 * 12
+    ),
     allowedFieldInputs: new Set(["text", "textarea", "number", "tags", "select"]),
   };
 }

@@ -11,6 +11,10 @@ ADMIN_USER="${BLENDER_CURRICULUM_ADMIN_USER:-}"
 ADMIN_GROUP="${BLENDER_CURRICULUM_ADMIN_GROUP:-}"
 ADMIN_HOST="${BLENDER_CURRICULUM_ADMIN_HOST:-}"
 ADMIN_PORT="${BLENDER_CURRICULUM_ADMIN_PORT:-}"
+ADMIN_USERNAME="${BLENDER_CURRICULUM_ADMIN_USERNAME:-}"
+ADMIN_PASSWORD="${BLENDER_CURRICULUM_ADMIN_PASSWORD:-}"
+SESSION_SECRET="${BLENDER_CURRICULUM_SESSION_SECRET:-}"
+SESSION_COOKIE_SECURE="${BLENDER_CURRICULUM_SESSION_COOKIE_SECURE:-auto}"
 MIGRATE_CONTENT="${BLENDER_CURRICULUM_MIGRATE_CONTENT:-true}"
 OVERWRITE_ENV="${BLENDER_CURRICULUM_OVERWRITE_ENV:-false}"
 INSTALL_DEPS="${BLENDER_CURRICULUM_INSTALL_DEPS:-false}"
@@ -18,7 +22,6 @@ SETUP_DIRENV="${BLENDER_CURRICULUM_SETUP_DIRENV:-true}"
 ADMIN_SERVICE="${BLENDER_CURRICULUM_ADMIN_SERVICE:-}"
 SYSTEMD_UNIT_NAME="${BLENDER_CURRICULUM_SYSTEMD_UNIT_NAME:-blender-curriculum-admin.service}"
 NGINX_SNIPPET_NAME="${BLENDER_CURRICULUM_NGINX_SNIPPET_NAME:-blender-curriculum-admin.conf}"
-NGINX_HTPASSWD_PATH="${BLENDER_CURRICULUM_NGINX_HTPASSWD_PATH:-/etc/nginx/.htpasswd}"
 
 # Keep explicit env var values as highest-priority prompt defaults.
 ENV_PREFILL_REPO_DIR="$REPO_DIR"
@@ -31,6 +34,10 @@ ENV_PREFILL_ADMIN_USER="$ADMIN_USER"
 ENV_PREFILL_ADMIN_GROUP="$ADMIN_GROUP"
 ENV_PREFILL_ADMIN_HOST="$ADMIN_HOST"
 ENV_PREFILL_ADMIN_PORT="$ADMIN_PORT"
+ENV_PREFILL_ADMIN_USERNAME="$ADMIN_USERNAME"
+ENV_PREFILL_ADMIN_PASSWORD="$ADMIN_PASSWORD"
+ENV_PREFILL_SESSION_SECRET="$SESSION_SECRET"
+ENV_PREFILL_SESSION_COOKIE_SECURE="$SESSION_COOKIE_SECURE"
 
 log() {
   printf '[install] %s\n' "$1"
@@ -76,6 +83,10 @@ load_existing_env_defaults() {
   ADMIN_GROUP="${ADMIN_GROUP:-${BLENDER_CURRICULUM_ADMIN_GROUP:-}}"
   ADMIN_HOST="${ADMIN_HOST:-${BLENDER_CURRICULUM_ADMIN_HOST:-}}"
   ADMIN_PORT="${ADMIN_PORT:-${BLENDER_CURRICULUM_ADMIN_PORT:-}}"
+  ADMIN_USERNAME="${ADMIN_USERNAME:-${BLENDER_CURRICULUM_ADMIN_USERNAME:-}}"
+  ADMIN_PASSWORD="${ADMIN_PASSWORD:-${BLENDER_CURRICULUM_ADMIN_PASSWORD:-}}"
+  SESSION_SECRET="${SESSION_SECRET:-${BLENDER_CURRICULUM_SESSION_SECRET:-}}"
+  SESSION_COOKIE_SECURE="${SESSION_COOKIE_SECURE:-${BLENDER_CURRICULUM_SESSION_COOKIE_SECURE:-}}"
   ADMIN_SERVICE="${ADMIN_SERVICE:-${BLENDER_CURRICULUM_ADMIN_SERVICE:-}}"
 
   # Explicit environment values always win over values loaded from ENV_FILE.
@@ -89,6 +100,10 @@ load_existing_env_defaults() {
   ADMIN_GROUP="${ENV_PREFILL_ADMIN_GROUP:-$ADMIN_GROUP}"
   ADMIN_HOST="${ENV_PREFILL_ADMIN_HOST:-$ADMIN_HOST}"
   ADMIN_PORT="${ENV_PREFILL_ADMIN_PORT:-$ADMIN_PORT}"
+  ADMIN_USERNAME="${ENV_PREFILL_ADMIN_USERNAME:-$ADMIN_USERNAME}"
+  ADMIN_PASSWORD="${ENV_PREFILL_ADMIN_PASSWORD:-$ADMIN_PASSWORD}"
+  SESSION_SECRET="${ENV_PREFILL_SESSION_SECRET:-$SESSION_SECRET}"
+  SESSION_COOKIE_SECURE="${ENV_PREFILL_SESSION_COOKIE_SECURE:-$SESSION_COOKIE_SECURE}"
 }
 
 prompt_with_prefill() {
@@ -125,6 +140,37 @@ prompt_with_prefill() {
   printf -v "$name" '%s' "$input_value"
 }
 
+prompt_secret_with_prefill() {
+  local name="$1"
+  local label="$2"
+  local current_value="${!name-}"
+  local input_value
+
+  if [ ! -t 0 ]; then
+    if [ -z "$current_value" ]; then
+      fail "$name is not set and no interactive terminal is available."
+    fi
+    return
+  fi
+
+  if [ -n "$current_value" ]; then
+    read -r -s -p "$label [leave empty to keep current value]: " input_value
+    printf '\n'
+    input_value="${input_value:-$current_value}"
+  else
+    while true; do
+      read -r -s -p "$label: " input_value
+      printf '\n'
+      if [ -n "$input_value" ]; then
+        break
+      fi
+      log "$name cannot be empty."
+    done
+  fi
+
+  printf -v "$name" '%s' "$input_value"
+}
+
 collect_configuration() {
   prompt_with_prefill ENV_FILE "Env file path (BLENDER_CURRICULUM_ENV_FILE)" "/etc/blender-curriculum/deploy.env"
   load_existing_env_defaults
@@ -138,6 +184,10 @@ collect_configuration() {
   prompt_with_prefill ADMIN_GROUP "Admin service group (BLENDER_CURRICULUM_ADMIN_GROUP)" "$ADMIN_USER"
   prompt_with_prefill ADMIN_HOST "Admin bind host (BLENDER_CURRICULUM_ADMIN_HOST)" "127.0.0.1"
   prompt_with_prefill ADMIN_PORT "Admin bind port (BLENDER_CURRICULUM_ADMIN_PORT)" "8787"
+  prompt_with_prefill ADMIN_USERNAME "Admin login username (BLENDER_CURRICULUM_ADMIN_USERNAME)" "admin"
+  prompt_secret_with_prefill ADMIN_PASSWORD "Admin login password (BLENDER_CURRICULUM_ADMIN_PASSWORD)"
+  prompt_secret_with_prefill SESSION_SECRET "Session secret (BLENDER_CURRICULUM_SESSION_SECRET)"
+  prompt_with_prefill SESSION_COOKIE_SECURE "Session cookie secure mode (BLENDER_CURRICULUM_SESSION_COOKIE_SECURE: auto/true/false)" "auto"
 }
 
 validate_admin_config() {
@@ -150,6 +200,26 @@ validate_admin_config() {
   if [ "$ADMIN_PORT" -lt 1 ] || [ "$ADMIN_PORT" -gt 65535 ]; then
     fail "BLENDER_CURRICULUM_ADMIN_PORT must be between 1 and 65535."
   fi
+
+  if [ -z "$ADMIN_USERNAME" ] || [ -z "$ADMIN_PASSWORD" ]; then
+    fail "BLENDER_CURRICULUM_ADMIN_USERNAME and BLENDER_CURRICULUM_ADMIN_PASSWORD must be set."
+  fi
+
+  if [ -z "$SESSION_SECRET" ]; then
+    fail "BLENDER_CURRICULUM_SESSION_SECRET must be set."
+  fi
+
+  if [ "${#SESSION_SECRET}" -lt 32 ]; then
+    fail "BLENDER_CURRICULUM_SESSION_SECRET must be at least 32 characters long."
+  fi
+
+  case "$(printf '%s' "$SESSION_COOKIE_SECURE" | tr '[:upper:]' '[:lower:]')" in
+    auto|true|false)
+      ;;
+    *)
+      fail "BLENDER_CURRICULUM_SESSION_COOKIE_SECURE must be one of: auto, true, false."
+      ;;
+  esac
 }
 
 write_systemd_unit() {
@@ -165,12 +235,7 @@ Type=simple
 User=$ADMIN_USER
 Group=$ADMIN_GROUP
 WorkingDirectory=$REPO_DIR
-Environment=BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH=true
-Environment=BLENDER_CURRICULUM_THEME_ROOT=$THEME_ROOT
-Environment=BLENDER_CURRICULUM_CONTENT_ROOT=$CONTENT_ROOT
-Environment=BLENDER_CURRICULUM_WEB_ROOT=$WEB_ROOT
-Environment=BLENDER_CURRICULUM_ADMIN_HOST=$ADMIN_HOST
-Environment=BLENDER_CURRICULUM_ADMIN_PORT=$ADMIN_PORT
+EnvironmentFile=$ENV_FILE
 ExecStart=/usr/bin/env npm run admin
 Restart=always
 RestartSec=3
@@ -187,34 +252,11 @@ location = /admin {
   return 301 /admin/;
 }
 
-location = /admin/session {
-  proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/admin/session;
-  proxy_set_header Host \$host;
-  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto \$scheme;
-  proxy_set_header X-Admin-User \$cookie_bc_admin_user;
-}
-
-location /admin/api/ {
-  auth_basic "Admin";
-  auth_basic_user_file $NGINX_HTPASSWD_PATH;
-  proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/admin/api/;
-  add_header Set-Cookie "bc_admin_user=\$remote_user; Path=/admin; HttpOnly; Secure; SameSite=Lax" always;
-  proxy_set_header Host \$host;
-  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto \$scheme;
-  proxy_set_header X-Remote-User \$remote_user;
-}
-
 location /admin/ {
-  auth_basic "Admin";
-  auth_basic_user_file $NGINX_HTPASSWD_PATH;
   proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/admin/;
-  add_header Set-Cookie "bc_admin_user=\$remote_user; Path=/admin; HttpOnly; Secure; SameSite=Lax" always;
   proxy_set_header Host \$host;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto \$scheme;
-  proxy_set_header X-Remote-User \$remote_user;
 }
 EOF
 }
@@ -288,6 +330,13 @@ BLENDER_CURRICULUM_WEB_ROOT=$WEB_ROOT
 BLENDER_CURRICULUM_BRANCH=$BRANCH
 BLENDER_CURRICULUM_THEME_ROOT=$THEME_ROOT
 BLENDER_CURRICULUM_CONTENT_ROOT=$CONTENT_ROOT
+BLENDER_CURRICULUM_ADMIN_HOST=$ADMIN_HOST
+BLENDER_CURRICULUM_ADMIN_PORT=$ADMIN_PORT
+BLENDER_CURRICULUM_ADMIN_USERNAME=$ADMIN_USERNAME
+BLENDER_CURRICULUM_ADMIN_PASSWORD=$ADMIN_PASSWORD
+BLENDER_CURRICULUM_SESSION_SECRET=$SESSION_SECRET
+BLENDER_CURRICULUM_SESSION_COOKIE_SECURE=$SESSION_COOKIE_SECURE
+BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH=false
 # Optional:
 # BLENDER_CURRICULUM_ADMIN_SERVICE=$SYSTEMD_UNIT_NAME
 # BLENDER_CURRICULUM_ALLOW_DIRTY=false

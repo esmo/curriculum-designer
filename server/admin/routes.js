@@ -15,19 +15,15 @@ function sendError(reply, error) {
   reply.code(statusCode).send(payload);
 }
 
-function sanitizeSingleLine(value) {
-  return String(value || "")
-    .replace(/\r?\n/g, " ")
-    .trim();
-}
-
-function requestSessionUser(request, auth) {
-  const cookieUser = sanitizeSingleLine(request.headers["x-admin-user"]);
-  if (cookieUser) {
-    return cookieUser;
-  }
-
-  return auth.requestRemoteUser(request) || "";
+function sessionPayload(userName) {
+  const normalizedUserName = String(userName || "").trim();
+  return {
+    ok: true,
+    loggedIn: normalizedUserName.length > 0,
+    user: {
+      name: normalizedUserName,
+    },
+  };
 }
 
 function registerRoutes(app, input) {
@@ -49,27 +45,61 @@ function registerRoutes(app, input) {
   });
 
   app.get("/admin/session", async (request, reply) => {
-    const userName = requestSessionUser(request, auth);
+    const userName = auth.requestAuthUser(request) || "";
     reply.header("cache-control", "no-store");
-    return {
-      ok: true,
-      loggedIn: Boolean(userName),
-      user: {
-        name: userName,
-      },
-    };
+    return sessionPayload(userName);
   });
 
-  app.get("/admin/api/schemas", { preHandler: auth.requireProxyAuth }, async () => ({
-    ok: true,
-    defaultEntryType: schemaService.getDefaultEntryType(),
-    schemas: schemaService.getPublicSchemas(),
-  }));
+  app.post("/admin/login", async (request, reply) => {
+    if (!auth.hasLocalCredentials()) {
+      reply.code(503).send({
+        error: "No local admin credentials configured on the server.",
+      });
+      return;
+    }
+
+    const username = request.body?.username;
+    const password = request.body?.password;
+    if (!auth.verifyCredentials(username, password)) {
+      reply.code(401).send({
+        error: "Invalid username or password.",
+      });
+      return;
+    }
+
+    auth.setSessionUser(request, username);
+    reply.header("cache-control", "no-store");
+    return sessionPayload(auth.requestSessionUser(request));
+  });
+
+  app.post("/admin/logout", async (request, reply) => {
+    try {
+      await auth.clearSession(request);
+    } catch (error) {
+      sendError(reply, error);
+      return;
+    }
+
+    reply.header("cache-control", "no-store");
+    return sessionPayload("");
+  });
+
+  app.get(
+    "/admin/api/schemas",
+    {
+      preHandler: auth.requireAdminAuth,
+    },
+    async () => ({
+      ok: true,
+      defaultEntryType: schemaService.getDefaultEntryType(),
+      schemas: schemaService.getPublicSchemas(),
+    })
+  );
 
   app.get(
     "/admin/api/entries/:entryType/:slug",
     {
-      preHandler: auth.requireProxyAuth,
+      preHandler: auth.requireAdminAuth,
     },
     async (request, reply) => {
       try {
@@ -84,13 +114,13 @@ function registerRoutes(app, input) {
   app.post(
     "/admin/api/entries",
     {
-      preHandler: auth.requireProxyAuth,
+      preHandler: auth.requireAdminAuth,
     },
     async (request, reply) => {
       try {
         const result = await entryService.saveEntry(
           request.body,
-          auth.requestRemoteUser(request)
+          auth.requestAuthUser(request)
         );
         reply.code(result.statusCode).send(result.body);
       } catch (error) {
@@ -102,7 +132,7 @@ function registerRoutes(app, input) {
   app.delete(
     "/admin/api/entries/:entryType/:slug",
     {
-      preHandler: auth.requireProxyAuth,
+      preHandler: auth.requireAdminAuth,
     },
     async (request, reply) => {
       try {

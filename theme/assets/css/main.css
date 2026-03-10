@@ -360,6 +360,50 @@ li p {
   color: #0b6840;
 }
 
+.admin-page .admin-auth {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.admin-page .admin-auth h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.admin-page .admin-auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-page .admin-auth-fields {
+  margin-top: 0.2rem;
+}
+
+.admin-page .admin-session-row {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.admin-page button.danger {
+  background: #a51818;
+}
+
+@media (max-width: 720px) {
+  .admin-page .admin-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-page .admin-session-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .admin-page .hint {
   font-size: 0.82rem;
   color: #54607a;

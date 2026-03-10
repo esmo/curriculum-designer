@@ -6,465 +6,668 @@
       <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) und startet danach einen Eleventy-Build.
     </p>
 
-    <form id="entry-form" class="admin-form">
-      <div class="admin-grid-2">
-        <label>
-          Typ
-          <select id="entry-type" name="entryType" required></select>
+    <section id="login-panel" class="admin-auth" hidden>
+      <h2>Anmeldung</h2>
+      <form id="login-form" class="admin-auth-form" autocomplete="on">
+        <div class="admin-grid-2 admin-auth-fields">
+          <label>
+            Benutzername
+            <input id="login-username" name="username" type="text" autocomplete="username" required />
+          </label>
+
+          <label>
+            Passwort
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="login-btn" type="submit">Anmelden</button>
+          <div id="login-status" class="status"></div>
+        </div>
+      </form>
+    </section>
+
+    <section id="editor-panel" hidden>
+      <div class="admin-session-row">
+        <span>Eingeloggt als <strong id="session-user-name"></strong></span>
+        <button id="logout-btn" type="button" class="danger">Abmelden</button>
+      </div>
+
+      <form id="entry-form" class="admin-form">
+        <div class="admin-grid-2">
+          <label>
+            Typ
+            <select id="entry-type" name="entryType" required></select>
+          </label>
+
+          <p class="hint">Felder werden aus YAML-Schemata geladen.</p>
+        </div>
+
+        <div id="fields-root" class="fields-grid"></div>
+
+        <label class="checkbox">
+          <input type="checkbox" name="overwrite" />
+          Bestehende Datei mit gleichem Slug ueberschreiben
         </label>
 
-        <p class="hint">Felder werden aus YAML-Schemata geladen.</p>
-      </div>
-
-      <div id="fields-root" class="fields-grid"></div>
-
-      <label class="checkbox">
-        <input type="checkbox" name="overwrite" />
-        Bestehende Datei mit gleichem Slug ueberschreiben
-      </label>
-
-      <div class="actions">
-        <button id="submit-btn" type="submit">Speichern</button>
-        <button id="delete-btn" class="danger" type="button" hidden>Loeschen</button>
-        <div id="status" class="status"></div>
-      </div>
-    </form>
+        <div class="actions">
+          <button id="submit-btn" type="submit">Speichern</button>
+          <button id="delete-btn" class="danger" type="button" hidden>Loeschen</button>
+          <div id="status" class="status"></div>
+        </div>
+      </form>
+    </section>
   </section>
 </main>
 
 <script>
-  const form = document.getElementById("entry-form");
-  const statusEl = document.getElementById("status");
-  const submitBtn = document.getElementById("submit-btn");
-  const deleteBtn = document.getElementById("delete-btn");
-  const entryTypeSelect = document.getElementById("entry-type");
-  const fieldsRoot = document.getElementById("fields-root");
-  const overwriteCheckbox = form.querySelector('input[name="overwrite"]');
-  const overwriteLabel = overwriteCheckbox?.closest(".checkbox");
-  const urlParams = new URLSearchParams(window.location.search);
-  const requestedEntryType = sanitizeEntryType(urlParams.get("entryType"));
-  const requestedSlug = slugify(urlParams.get("slug"));
-  const isEditMode = Boolean(requestedEntryType && requestedSlug);
-  const editTarget = isEditMode
-    ? { entryType: requestedEntryType, slug: requestedSlug }
-    : null;
-  let slugWasEdited = false;
-  let schemaMap = new Map();
-  let currentSchema = null;
+  (() => {
+    const loginPanel = document.getElementById("login-panel");
+    const editorPanel = document.getElementById("editor-panel");
+    const loginForm = document.getElementById("login-form");
+    const loginStatusEl = document.getElementById("login-status");
+    const loginBtn = document.getElementById("login-btn");
+    const logoutBtn = document.getElementById("logout-btn");
+    const sessionUserNameEl = document.getElementById("session-user-name");
 
-  function slugify(value) {
-    return String(value || "")
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9_-]+/g, "-")
-      .replace(/^[-_]+|[-_]+$/g, "");
-  }
+    const form = document.getElementById("entry-form");
+    const statusEl = document.getElementById("status");
+    const submitBtn = document.getElementById("submit-btn");
+    const deleteBtn = document.getElementById("delete-btn");
+    const entryTypeSelect = document.getElementById("entry-type");
+    const fieldsRoot = document.getElementById("fields-root");
+    const overwriteCheckbox = form.querySelector('input[name="overwrite"]');
+    const overwriteLabel = overwriteCheckbox?.closest(".checkbox");
 
-  function sanitizeEntryType(value) {
-    return String(value || "")
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9_-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedEntryType = sanitizeEntryType(urlParams.get("entryType"));
+    const requestedSlug = slugify(urlParams.get("slug"));
+    const isEditMode = Boolean(requestedEntryType && requestedSlug);
+    const editTarget = isEditMode
+      ? { entryType: requestedEntryType, slug: requestedSlug }
+      : null;
 
-  function setStatus(message, type) {
-    statusEl.className = "status";
-    if (type) {
-      statusEl.classList.add(type);
-    }
-    statusEl.textContent = message;
-  }
+    let slugWasEdited = false;
+    let schemaMap = new Map();
+    let currentSchema = null;
+    let editorInitialized = false;
 
-  function fieldInputElement(field, elementId) {
-    if (field.input === "textarea") {
-      const textarea = document.createElement("textarea");
-      textarea.id = elementId;
-      textarea.name = field.name;
-      if (field.rows) {
-        textarea.rows = field.rows;
-      }
-      if (field.placeholder) {
-        textarea.placeholder = field.placeholder;
-      }
-      if (field.name === "content") {
-        textarea.style.minHeight = "300px";
-      } else if (field.name === "description") {
-        textarea.style.minHeight = "100px";
-      }
-      return textarea;
+    function slugify(value) {
+      return String(value || "")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^[-_]+|[-_]+$/g, "");
     }
 
-    if (field.input === "select") {
-      const select = document.createElement("select");
-      select.id = elementId;
-      select.name = field.name;
-      for (const option of field.options || []) {
-        const opt = document.createElement("option");
-        opt.value = option.value;
-        opt.textContent = option.label;
-        select.appendChild(opt);
-      }
-      return select;
+    function sanitizeEntryType(value) {
+      return String(value || "")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
     }
 
-    const input = document.createElement("input");
-    input.id = elementId;
-    input.name = field.name;
-    input.type = field.input === "number" ? "number" : "text";
-    if (field.input === "number" && Number.isFinite(field.min)) {
-      input.min = String(field.min);
-    }
-    if (field.placeholder) {
-      input.placeholder = field.placeholder;
-    }
-    return input;
-  }
-
-  function createField(field) {
-    const elementId = `field-${field.name}`;
-    const wrapper = document.createElement("label");
-    wrapper.className = `field width-${field.width || "full"}`;
-
-    const title = document.createTextNode(field.label);
-    wrapper.appendChild(title);
-
-    const control = fieldInputElement(field, elementId);
-    control.dataset.fieldName = field.name;
-    control.required = field.required === true;
-    wrapper.appendChild(control);
-
-    if (field.hint) {
-      const hint = document.createElement("span");
-      hint.className = "hint";
-      hint.textContent = field.hint;
-      wrapper.appendChild(hint);
-    }
-
-    return wrapper;
-  }
-
-  function getFieldElement(fieldName) {
-    return fieldsRoot.querySelector(`[data-field-name="${fieldName}"]`);
-  }
-
-  function connectSlugAutofill() {
-    if (isEditMode) {
-      slugWasEdited = true;
-      return;
-    }
-
-    slugWasEdited = false;
-    const titleInput = getFieldElement("title");
-    const slugInput = getFieldElement("slug");
-    if (!titleInput || !slugInput) {
-      return;
-    }
-
-    titleInput.addEventListener("input", () => {
-      if (!slugWasEdited) {
-        slugInput.value = slugify(titleInput.value);
-      }
-    });
-
-    slugInput.addEventListener("input", () => {
-      slugWasEdited = slugInput.value.trim().length > 0;
-    });
-  }
-
-  function renderSchema(schema) {
-    currentSchema = schema;
-    fieldsRoot.innerHTML = "";
-    for (const field of schema.fields || []) {
-      fieldsRoot.appendChild(createField(field));
-    }
-    connectSlugAutofill();
-  }
-
-  function applyFieldValues(values) {
-    for (const field of currentSchema?.fields || []) {
-      const input = getFieldElement(field.name);
-      if (!input) {
-        continue;
+    function setStatusElement(element, message, type) {
+      if (!element) {
+        return;
       }
 
-      const value = values[field.name];
-      input.value = value === null || value === undefined ? "" : String(value);
-    }
-  }
-
-  function buildDeployMessage(data, mode) {
-    const sync = data.build?.sync;
-    let buildText = "Build erfolgreich.";
-    let statusType = "success";
-
-    if (!data.build?.ok) {
-      buildText = `${mode} gespeichert, Build fehlgeschlagen.`;
-      statusType = "error";
-    } else if (sync && !sync.ok && !sync.skipped) {
-      buildText =
-        "Build erfolgreich, Sync nach BLENDER_CURRICULUM_WEB_ROOT fehlgeschlagen.";
-      statusType = "error";
-    } else if (sync && sync.ok && !sync.skipped) {
-      buildText = "Build und Sync erfolgreich.";
-    } else if (sync && sync.skipped) {
-      buildText =
-        "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
+      element.className = "status";
+      if (type) {
+        element.classList.add(type);
+      }
+      element.textContent = message || "";
     }
 
-    return {
-      text: buildText,
-      statusType,
-    };
-  }
-
-  async function loadEntryForEdit(entryType, slug) {
-    const response = await fetch(
-      `/admin/api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(slug)}`
-    );
-    const data = await response.json();
-
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || "Eintrag konnte nicht geladen werden.");
+    function setStatus(message, type) {
+      setStatusElement(statusEl, message, type);
     }
 
-    if (!schemaMap.has(data.entryType)) {
-      throw new Error(`Schema "${data.entryType}" ist nicht verfuegbar.`);
+    function setLoginStatus(message, type) {
+      setStatusElement(loginStatusEl, message, type);
     }
 
-    if (entryTypeSelect.value !== data.entryType) {
-      entryTypeSelect.value = data.entryType;
-      renderSchema(schemaMap.get(data.entryType));
-    }
+    function syncGlobalAuthUi(loggedIn, userName) {
+      const userNameEl = document.querySelector("[data-user-name]");
+      const editLink = document.querySelector("[data-admin-edit-link]");
+      const loginLink = document.querySelector("[data-admin-login-link]");
+      const createItem = document.querySelector("[data-admin-create-item]");
 
-    applyFieldValues(data.fields || {});
-
-    const slugInput = getFieldElement("slug");
-    if (slugInput) {
-      slugInput.value = data.slug || slug;
-      slugInput.readOnly = true;
-    }
-
-    submitBtn.textContent = "Speichern";
-    if (overwriteCheckbox) {
-      overwriteCheckbox.checked = true;
-    }
-    if (overwriteLabel) {
-      overwriteLabel.hidden = true;
-    }
-
-    entryTypeSelect.disabled = true;
-    deleteBtn.hidden = false;
-    setStatus(`Bearbeite: ${data.file}`, null);
-  }
-
-  async function loadSchemas() {
-    const response = await fetch("/admin/api/schemas");
-    const data = await response.json();
-
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || "Schemata konnten nicht geladen werden.");
-    }
-
-    entryTypeSelect.innerHTML = "";
-    schemaMap = new Map();
-
-    for (const schema of data.schemas || []) {
-      schemaMap.set(schema.id, schema);
-      const option = document.createElement("option");
-      option.value = schema.id;
-      option.textContent = schema.label;
-      entryTypeSelect.appendChild(option);
-    }
-
-    const initialType = data.defaultEntryType || entryTypeSelect.value;
-    if (!schemaMap.has(initialType)) {
-      throw new Error("Kein gueltiges Standard-Schema gefunden.");
-    }
-
-    entryTypeSelect.value = initialType;
-    renderSchema(schemaMap.get(initialType));
-  }
-
-  function payloadFromForm() {
-    if (!currentSchema) {
-      throw new Error("Kein aktives Schema geladen.");
-    }
-
-    const fields = {};
-    for (const field of currentSchema.fields || []) {
-      const input = getFieldElement(field.name);
-      if (!input) {
-        continue;
+      if (loginLink) {
+        loginLink.classList.toggle("is-hidden", loggedIn);
       }
 
-      if (field.input === "number") {
-        const raw = String(input.value || "").trim();
-        fields[field.name] = raw === "" ? null : Number(raw);
-      } else {
-        fields[field.name] = String(input.value || "");
+      if (editLink) {
+        editLink.classList.toggle("is-hidden", !loggedIn);
+      }
+
+      if (createItem) {
+        createItem.classList.toggle("is-hidden", !loggedIn);
+      }
+
+      if (userNameEl) {
+        userNameEl.hidden = !loggedIn;
+        userNameEl.textContent = loggedIn ? userName : "";
       }
     }
 
-    if ((!fields.slug || fields.slug.trim() === "") && fields.title) {
-      fields.slug = slugify(fields.title);
-      const slugInput = getFieldElement("slug");
-      if (slugInput) {
-        slugInput.value = fields.slug;
+    function setPanelState(loggedIn, userName) {
+      const isLoggedIn = Boolean(loggedIn);
+      const normalizedUserName = String(userName || "").trim();
+
+      if (loginPanel) {
+        loginPanel.hidden = isLoggedIn;
+      }
+
+      if (editorPanel) {
+        editorPanel.hidden = !isLoggedIn;
+      }
+
+      if (sessionUserNameEl) {
+        sessionUserNameEl.textContent = isLoggedIn ? normalizedUserName : "";
+      }
+
+      syncGlobalAuthUi(isLoggedIn, normalizedUserName);
+
+      if (!isLoggedIn && loginForm) {
+        loginForm.reset();
       }
     }
 
-    if (isEditMode && editTarget) {
-      fields.slug = editTarget.slug;
-    }
-
-    const overwrite = isEditMode
-      ? true
-      : new FormData(form).get("overwrite") === "on";
-
-    return {
-      entryType: entryTypeSelect.value,
-      fields,
-      overwrite,
-    };
-  }
-
-  entryTypeSelect.addEventListener("change", () => {
-    if (isEditMode) {
-      return;
-    }
-
-    const schema = schemaMap.get(entryTypeSelect.value);
-    if (schema) {
-      renderSchema(schema);
-    }
-  });
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setStatus("Speichere...", null);
-    submitBtn.disabled = true;
-
-    try {
-      const payload = payloadFromForm();
-
-      const response = await fetch("/admin/api/entries", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    async function fetchJson(url, options = {}) {
+      const response = await fetch(url, {
+        credentials: "same-origin",
+        ...options,
       });
 
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Unbekannter Fehler");
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (_) {
+        data = null;
       }
 
-      const deployMessage = buildDeployMessage(
+      return {
+        response,
         data,
-        isEditMode ? "Eintrag" : "Eintrag"
-      );
+      };
+    }
 
-      const shouldRedirect = data.deployOk === true;
-      if (shouldRedirect) {
-        setStatus(
-          `Gespeichert: ${data.file}. ${deployMessage.text} Weiterleitung...`,
-          deployMessage.statusType
-        );
-      } else {
-        setStatus(
-          `Gespeichert: ${data.file}. ${deployMessage.text}`,
-          deployMessage.statusType
-        );
+    async function readSession() {
+      const { response, data } = await fetchJson("/admin/session");
+      if (!response.ok) {
+        return {
+          loggedIn: false,
+          userName: "",
+        };
       }
 
-      if (shouldRedirect && data.viewUrl) {
-        setTimeout(() => {
-          window.location.assign(data.viewUrl);
-        }, 300);
-      }
-    } catch (error) {
-      setStatus(error.message, "error");
-    } finally {
-      submitBtn.disabled = false;
-    }
-  });
-
-  deleteBtn.addEventListener("click", async () => {
-    if (!isEditMode || !editTarget) {
-      return;
+      const userName = String(data?.user?.name || "").trim();
+      return {
+        loggedIn: Boolean(data?.loggedIn) || userName.length > 0,
+        userName,
+      };
     }
 
-    const confirmed = window.confirm(
-      `Eintrag "${editTarget.slug}" wirklich loeschen?`
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    setStatus("Loesche...", null);
-    submitBtn.disabled = true;
-    deleteBtn.disabled = true;
-
-    try {
-      const response = await fetch(
-        `/admin/api/entries/${encodeURIComponent(editTarget.entryType)}/${encodeURIComponent(editTarget.slug)}`,
-        {
-          method: "DELETE",
+    function fieldInputElement(field, elementId) {
+      if (field.input === "textarea") {
+        const textarea = document.createElement("textarea");
+        textarea.id = elementId;
+        textarea.name = field.name;
+        if (field.rows) {
+          textarea.rows = field.rows;
         }
-      );
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Loeschen fehlgeschlagen.");
+        if (field.placeholder) {
+          textarea.placeholder = field.placeholder;
+        }
+        if (field.name === "content") {
+          textarea.style.minHeight = "300px";
+        } else if (field.name === "description") {
+          textarea.style.minHeight = "100px";
+        }
+        return textarea;
       }
 
-      const deployMessage = buildDeployMessage(data, "Eintrag");
-      const shouldRedirect = data.deployOk === true;
-
-      if (shouldRedirect) {
-        setStatus(
-          `Geloescht: ${data.file}. ${deployMessage.text} Weiterleitung...`,
-          deployMessage.statusType
-        );
-      } else {
-        setStatus(
-          `Geloescht: ${data.file}. ${deployMessage.text}`,
-          deployMessage.statusType
-        );
+      if (field.input === "select") {
+        const select = document.createElement("select");
+        select.id = elementId;
+        select.name = field.name;
+        for (const option of field.options || []) {
+          const opt = document.createElement("option");
+          opt.value = option.value;
+          opt.textContent = option.label;
+          select.appendChild(opt);
+        }
+        return select;
       }
 
-      if (shouldRedirect && data.listUrl) {
-        setTimeout(() => {
-          window.location.assign(data.listUrl);
-        }, 300);
+      const input = document.createElement("input");
+      input.id = elementId;
+      input.name = field.name;
+      input.type = field.input === "number" ? "number" : "text";
+      if (field.input === "number" && Number.isFinite(field.min)) {
+        input.min = String(field.min);
       }
-    } catch (error) {
-      setStatus(error.message, "error");
-    } finally {
-      submitBtn.disabled = false;
-      deleteBtn.disabled = false;
+      if (field.placeholder) {
+        input.placeholder = field.placeholder;
+      }
+      return input;
     }
-  });
 
-  loadSchemas()
-    .then(async () => {
+    function createField(field) {
+      const elementId = `field-${field.name}`;
+      const wrapper = document.createElement("label");
+      wrapper.className = `field width-${field.width || "full"}`;
+
+      const title = document.createTextNode(field.label);
+      wrapper.appendChild(title);
+
+      const control = fieldInputElement(field, elementId);
+      control.dataset.fieldName = field.name;
+      control.required = field.required === true;
+      wrapper.appendChild(control);
+
+      if (field.hint) {
+        const hint = document.createElement("span");
+        hint.className = "hint";
+        hint.textContent = field.hint;
+        wrapper.appendChild(hint);
+      }
+
+      return wrapper;
+    }
+
+    function getFieldElement(fieldName) {
+      return fieldsRoot.querySelector(`[data-field-name="${fieldName}"]`);
+    }
+
+    function connectSlugAutofill() {
+      if (isEditMode) {
+        slugWasEdited = true;
+        return;
+      }
+
+      slugWasEdited = false;
+      const titleInput = getFieldElement("title");
+      const slugInput = getFieldElement("slug");
+      if (!titleInput || !slugInput) {
+        return;
+      }
+
+      titleInput.addEventListener("input", () => {
+        if (!slugWasEdited) {
+          slugInput.value = slugify(titleInput.value);
+        }
+      });
+
+      slugInput.addEventListener("input", () => {
+        slugWasEdited = slugInput.value.trim().length > 0;
+      });
+    }
+
+    function renderSchema(schema) {
+      currentSchema = schema;
+      fieldsRoot.innerHTML = "";
+      for (const field of schema.fields || []) {
+        fieldsRoot.appendChild(createField(field));
+      }
+      connectSlugAutofill();
+    }
+
+    function applyFieldValues(values) {
+      for (const field of currentSchema?.fields || []) {
+        const input = getFieldElement(field.name);
+        if (!input) {
+          continue;
+        }
+
+        const value = values[field.name];
+        input.value = value === null || value === undefined ? "" : String(value);
+      }
+    }
+
+    function buildDeployMessage(data, mode) {
+      const sync = data.build?.sync;
+      let buildText = "Build erfolgreich.";
+      let statusType = "success";
+
+      if (!data.build?.ok) {
+        buildText = `${mode} gespeichert, Build fehlgeschlagen.`;
+        statusType = "error";
+      } else if (sync && !sync.ok && !sync.skipped) {
+        buildText =
+          "Build erfolgreich, Sync nach BLENDER_CURRICULUM_WEB_ROOT fehlgeschlagen.";
+        statusType = "error";
+      } else if (sync && sync.ok && !sync.skipped) {
+        buildText = "Build und Sync erfolgreich.";
+      } else if (sync && sync.skipped) {
+        buildText =
+          "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
+      }
+
+      return {
+        text: buildText,
+        statusType,
+      };
+    }
+
+    function throwIfUnauthorized(response) {
+      if (response.status === 401) {
+        throw new Error("Nicht eingeloggt. Bitte erneut anmelden.");
+      }
+    }
+
+    async function loadEntryForEdit(entryType, slug) {
+      const { response, data } = await fetchJson(
+        `/admin/api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(slug)}`
+      );
+      throwIfUnauthorized(response);
+
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || "Eintrag konnte nicht geladen werden.");
+      }
+
+      if (!schemaMap.has(data.entryType)) {
+        throw new Error(`Schema "${data.entryType}" ist nicht verfuegbar.`);
+      }
+
+      if (entryTypeSelect.value !== data.entryType) {
+        entryTypeSelect.value = data.entryType;
+        renderSchema(schemaMap.get(data.entryType));
+      }
+
+      applyFieldValues(data.fields || {});
+
+      const slugInput = getFieldElement("slug");
+      if (slugInput) {
+        slugInput.value = data.slug || slug;
+        slugInput.readOnly = true;
+      }
+
+      submitBtn.textContent = "Speichern";
+      if (overwriteCheckbox) {
+        overwriteCheckbox.checked = true;
+      }
+      if (overwriteLabel) {
+        overwriteLabel.hidden = true;
+      }
+
+      entryTypeSelect.disabled = true;
+      deleteBtn.hidden = false;
+      setStatus(`Bearbeite: ${data.file}`, null);
+    }
+
+    async function loadSchemas() {
+      const { response, data } = await fetchJson("/admin/api/schemas");
+      throwIfUnauthorized(response);
+
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || "Schemata konnten nicht geladen werden.");
+      }
+
+      entryTypeSelect.innerHTML = "";
+      schemaMap = new Map();
+
+      for (const schema of data.schemas || []) {
+        schemaMap.set(schema.id, schema);
+        const option = document.createElement("option");
+        option.value = schema.id;
+        option.textContent = schema.label;
+        entryTypeSelect.appendChild(option);
+      }
+
+      const initialType = data.defaultEntryType || entryTypeSelect.value;
+      if (!schemaMap.has(initialType)) {
+        throw new Error("Kein gueltiges Standard-Schema gefunden.");
+      }
+
+      entryTypeSelect.value = initialType;
+      renderSchema(schemaMap.get(initialType));
+    }
+
+    function payloadFromForm() {
+      if (!currentSchema) {
+        throw new Error("Kein aktives Schema geladen.");
+      }
+
+      const fields = {};
+      for (const field of currentSchema.fields || []) {
+        const input = getFieldElement(field.name);
+        if (!input) {
+          continue;
+        }
+
+        if (field.input === "number") {
+          const raw = String(input.value || "").trim();
+          fields[field.name] = raw === "" ? null : Number(raw);
+        } else {
+          fields[field.name] = String(input.value || "");
+        }
+      }
+
+      if ((!fields.slug || fields.slug.trim() === "") && fields.title) {
+        fields.slug = slugify(fields.title);
+        const slugInput = getFieldElement("slug");
+        if (slugInput) {
+          slugInput.value = fields.slug;
+        }
+      }
+
+      if (isEditMode && editTarget) {
+        fields.slug = editTarget.slug;
+      }
+
+      const overwrite = isEditMode
+        ? true
+        : new FormData(form).get("overwrite") === "on";
+
+      return {
+        entryType: entryTypeSelect.value,
+        fields,
+        overwrite,
+      };
+    }
+
+    entryTypeSelect.addEventListener("change", () => {
+      if (isEditMode) {
+        return;
+      }
+
+      const schema = schemaMap.get(entryTypeSelect.value);
+      if (schema) {
+        renderSchema(schema);
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setStatus("Speichere...", null);
+      submitBtn.disabled = true;
+
+      try {
+        const payload = payloadFromForm();
+        const { response, data } = await fetchJson("/admin/api/entries", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        throwIfUnauthorized(response);
+
+        if (!response.ok || !data?.ok) {
+          throw new Error(data?.error || "Unbekannter Fehler");
+        }
+
+        const deployMessage = buildDeployMessage(data, "Eintrag");
+        const shouldRedirect = data.deployOk === true;
+
+        if (shouldRedirect) {
+          setStatus(
+            `Gespeichert: ${data.file}. ${deployMessage.text} Weiterleitung...`,
+            deployMessage.statusType
+          );
+        } else {
+          setStatus(`Gespeichert: ${data.file}. ${deployMessage.text}`, deployMessage.statusType);
+        }
+
+        if (shouldRedirect && data.viewUrl) {
+          setTimeout(() => {
+            window.location.assign(data.viewUrl);
+          }, 300);
+        }
+      } catch (error) {
+        setStatus(error.message, "error");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    deleteBtn.addEventListener("click", async () => {
+      if (!isEditMode || !editTarget) {
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Eintrag "${editTarget.slug}" wirklich loeschen?`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      setStatus("Loesche...", null);
+      submitBtn.disabled = true;
+      deleteBtn.disabled = true;
+
+      try {
+        const { response, data } = await fetchJson(
+          `/admin/api/entries/${encodeURIComponent(editTarget.entryType)}/${encodeURIComponent(editTarget.slug)}`,
+          {
+            method: "DELETE",
+          }
+        );
+        throwIfUnauthorized(response);
+
+        if (!response.ok || !data?.ok) {
+          throw new Error(data?.error || "Loeschen fehlgeschlagen.");
+        }
+
+        const deployMessage = buildDeployMessage(data, "Eintrag");
+        const shouldRedirect = data.deployOk === true;
+
+        if (shouldRedirect) {
+          setStatus(
+            `Geloescht: ${data.file}. ${deployMessage.text} Weiterleitung...`,
+            deployMessage.statusType
+          );
+        } else {
+          setStatus(`Geloescht: ${data.file}. ${deployMessage.text}`, deployMessage.statusType);
+        }
+
+        if (shouldRedirect && data.listUrl) {
+          setTimeout(() => {
+            window.location.assign(data.listUrl);
+          }, 300);
+        }
+      } catch (error) {
+        setStatus(error.message, "error");
+      } finally {
+        submitBtn.disabled = false;
+        deleteBtn.disabled = false;
+      }
+    });
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setLoginStatus("Anmeldung laeuft...", null);
+      loginBtn.disabled = true;
+
+      try {
+        const formData = new FormData(loginForm);
+        const username = String(formData.get("username") || "").trim();
+        const password = String(formData.get("password") || "");
+
+        const { response, data } = await fetchJson("/admin/login", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            username,
+            password,
+          }),
+        });
+
+        if (!response.ok || !data?.ok) {
+          throw new Error(data?.error || "Anmeldung fehlgeschlagen.");
+        }
+
+        setLoginStatus("Anmeldung erfolgreich.", "success");
+        await bootstrap();
+      } catch (error) {
+        setLoginStatus(error.message, "error");
+      } finally {
+        loginBtn.disabled = false;
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      logoutBtn.disabled = true;
+      setStatus("");
+
+      try {
+        await fetchJson("/admin/logout", {
+          method: "POST",
+        });
+      } finally {
+        logoutBtn.disabled = false;
+      }
+
+      await bootstrap();
+    });
+
+    async function initializeEditor() {
+      if (editorInitialized) {
+        return;
+      }
+
+      editorInitialized = true;
+      await loadSchemas();
+
       if (!isEditMode || !editTarget) {
         return;
       }
 
       if (!schemaMap.has(editTarget.entryType)) {
-        throw new Error(
-          `Unbekannter entryType "${editTarget.entryType}" in der URL.`
-        );
+        throw new Error(`Unbekannter entryType "${editTarget.entryType}" in der URL.`);
       }
 
       entryTypeSelect.value = editTarget.entryType;
       renderSchema(schemaMap.get(editTarget.entryType));
       await loadEntryForEdit(editTarget.entryType, editTarget.slug);
-    })
-    .catch((error) => {
-      setStatus(error.message, "error");
+    }
+
+    async function bootstrap() {
+      setStatus("");
+      const session = await readSession();
+      if (!session.loggedIn) {
+        setPanelState(false, "");
+        return;
+      }
+
+      setPanelState(true, session.userName);
+      try {
+        await initializeEditor();
+      } catch (error) {
+        setStatus(error.message, "error");
+      }
+    }
+
+    bootstrap().catch((error) => {
+      setPanelState(false, "");
+      setLoginStatus(error.message || "Session konnte nicht geladen werden.", "error");
     });
+  })();
 </script>
