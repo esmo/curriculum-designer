@@ -322,6 +322,78 @@ li p {
   resize: vertical;
 }
 
+.admin-page .EasyMDEContainer {
+  width: 100%;
+}
+
+.admin-page .EasyMDEContainer .editor-toolbar {
+  border: 1px solid #dbe0ea;
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: #f7f9fc;
+  opacity: 1;
+}
+
+.admin-page .EasyMDEContainer .editor-toolbar button {
+  min-width: 2.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 0;
+  color: #17315f;
+  background: transparent;
+  font-size: 0.85rem;
+}
+
+.admin-page .EasyMDEContainer .editor-toolbar button:hover,
+.admin-page .EasyMDEContainer .editor-toolbar button.active {
+  background: rgba(19, 72, 201, 0.12);
+}
+
+.admin-page .EasyMDEContainer .CodeMirror,
+.admin-page .EasyMDEContainer .editor-preview,
+.admin-page .EasyMDEContainer .editor-preview-side {
+  border: 1px solid #dbe0ea;
+  background: #fff;
+}
+
+.admin-page .EasyMDEContainer .CodeMirror {
+  border-radius: 0 0 10px 10px;
+  min-height: 360px;
+}
+
+.admin-page .EasyMDEContainer .editor-preview,
+.admin-page .EasyMDEContainer .editor-preview-side {
+  padding: 1rem 1.1rem;
+}
+
+.admin-page .EasyMDEContainer .editor-preview-side {
+  border-radius: 10px;
+}
+
+.admin-page .EasyMDEContainer .editor-preview h1,
+.admin-page .EasyMDEContainer .editor-preview h2,
+.admin-page .EasyMDEContainer .editor-preview h3,
+.admin-page .EasyMDEContainer .editor-preview-side h1,
+.admin-page .EasyMDEContainer .editor-preview-side h2,
+.admin-page .EasyMDEContainer .editor-preview-side h3 {
+  margin-top: 1.1em;
+  margin-bottom: 0.45em;
+}
+
+.admin-page .EasyMDEContainer .editor-preview p,
+.admin-page .EasyMDEContainer .editor-preview-side p {
+  margin: 0 0 0.85em;
+}
+
+.admin-page .EasyMDEContainer .editor-preview pre,
+.admin-page .EasyMDEContainer .editor-preview-side pre {
+  overflow: auto;
+  border-radius: 8px;
+  background: #0f1729;
+  color: #f6f8fc;
+  padding: 0.9rem 1rem;
+}
+
 .admin-page button {
   width: auto;
   background: #1348c9;

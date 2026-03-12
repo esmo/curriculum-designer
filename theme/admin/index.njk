@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="./assets/vendor/easymde/easymde.min.css" />
+
 <main class="admin-page">
   <section class="admin-card">
     <h1>Curriculum Admin</h1>
@@ -61,6 +63,7 @@
   </section>
 </main>
 
+<script src="./assets/vendor/easymde/easymde.min.js"></script>
 <script>
   (() => {
     const loginPanel = document.getElementById("login-panel");
@@ -92,6 +95,7 @@
     let schemaMap = new Map();
     let currentSchema = null;
     let editorInitialized = false;
+    let markdownEditors = new Map();
 
     function slugify(value) {
       return String(value || "")
@@ -211,23 +215,27 @@
       };
     }
 
+    function createTextAreaControl(field, elementId) {
+      const textarea = document.createElement("textarea");
+      textarea.id = elementId;
+      textarea.name = field.name;
+      if (field.rows) {
+        textarea.rows = field.rows;
+      }
+      if (field.placeholder) {
+        textarea.placeholder = field.placeholder;
+      }
+      if (field.input === "markdown" || field.name === "content") {
+        textarea.style.minHeight = "360px";
+      } else if (field.name === "description") {
+        textarea.style.minHeight = "100px";
+      }
+      return textarea;
+    }
+
     function fieldInputElement(field, elementId) {
-      if (field.input === "textarea") {
-        const textarea = document.createElement("textarea");
-        textarea.id = elementId;
-        textarea.name = field.name;
-        if (field.rows) {
-          textarea.rows = field.rows;
-        }
-        if (field.placeholder) {
-          textarea.placeholder = field.placeholder;
-        }
-        if (field.name === "content") {
-          textarea.style.minHeight = "300px";
-        } else if (field.name === "description") {
-          textarea.style.minHeight = "100px";
-        }
-        return textarea;
+      if (field.input === "textarea" || field.input === "markdown") {
+        return createTextAreaControl(field, elementId);
       }
 
       if (field.input === "select") {
@@ -254,6 +262,85 @@
         input.placeholder = field.placeholder;
       }
       return input;
+    }
+
+    function createMarkdownToolbar() {
+      return [
+        {
+          name: "bold",
+          action: EasyMDE.toggleBold,
+          text: "B",
+          title: "Fett",
+        },
+        {
+          name: "italic",
+          action: EasyMDE.toggleItalic,
+          text: "I",
+          title: "Kursiv",
+        },
+        {
+          name: "heading",
+          action: EasyMDE.toggleHeadingSmaller,
+          text: "H",
+          title: "Ueberschrift",
+        },
+        "|",
+        {
+          name: "quote",
+          action: EasyMDE.toggleBlockquote,
+          text: "\"",
+          title: "Zitat",
+        },
+        {
+          name: "unordered-list",
+          action: EasyMDE.toggleUnorderedList,
+          text: "Liste",
+          title: "Aufzaehlung",
+        },
+        {
+          name: "ordered-list",
+          action: EasyMDE.toggleOrderedList,
+          text: "1.",
+          title: "Nummerierte Liste",
+        },
+        {
+          name: "link",
+          action: EasyMDE.drawLink,
+          text: "Link",
+          title: "Link",
+        },
+        {
+          name: "code",
+          action: EasyMDE.toggleCodeBlock,
+          text: "{}",
+          title: "Codeblock",
+        },
+        {
+          name: "table",
+          action: EasyMDE.drawTable,
+          text: "Tabelle",
+          title: "Tabelle",
+        },
+        "|",
+        {
+          name: "preview",
+          action: EasyMDE.togglePreview,
+          text: "Vorschau",
+          title: "Vorschau",
+        },
+        {
+          name: "side-by-side",
+          action: EasyMDE.toggleSideBySide,
+          text: "Split",
+          title: "Editor und Vorschau",
+        },
+        {
+          name: "fullscreen",
+          action: EasyMDE.toggleFullScreen,
+          text: "Vollbild",
+          title: "Vollbild",
+        },
+      ];
     }
 
     function createField(field) {
@@ -283,6 +370,48 @@
       return fieldsRoot.querySelector(`[data-field-name="${fieldName}"]`);
     }
 
+    function destroyMarkdownEditors() {
+      for (const editor of markdownEditors.values()) {
+        editor.toTextArea();
+      }
+      markdownEditors = new Map();
+    }
+
+    function initializeMarkdownEditors() {
+      for (const field of currentSchema?.fields || []) {
+        if (field.input !== "markdown") {
+          continue;
+        }
+
+        if (typeof window.EasyMDE !== "function") {
+          throw new Error("Markdown-Editor konnte nicht geladen werden.");
+        }
+
+        const textarea = getFieldElement(field.name);
+        if (!textarea) {
+          continue;
+        }
+
+        const editor = new EasyMDE({
+          element: textarea,
+          autoDownloadFontAwesome: false,
+          forceSync: true,
+          spellChecker: false,
+          status: false,
+          lineNumbers: false,
+          sideBySideFullscreen: false,
+          minHeight: field.name === "content" ? "420px" : "220px",
+          placeholder: field.placeholder || "",
+          toolbar: createMarkdownToolbar(),
+          renderingConfig: {
+            singleLineBreaks: false,
+          },
+        });
+
+        markdownEditors.set(field.name, editor);
+      }
+    }
+
     function connectSlugAutofill() {
       if (isEditMode) {
         slugWasEdited = true;
@@ -308,12 +437,27 @@
     }
 
     function renderSchema(schema) {
+      destroyMarkdownEditors();
       currentSchema = schema;
       fieldsRoot.innerHTML = "";
       for (const field of schema.fields || []) {
         fieldsRoot.appendChild(createField(field));
       }
+      initializeMarkdownEditors();
       connectSlugAutofill();
+    }
+
+    function setFieldValue(field, input, value) {
+      const normalizedValue = value === null || value === undefined ? "" : String(value);
+      if (field.input === "markdown") {
+        const editor = markdownEditors.get(field.name);
+        if (editor) {
+          editor.value(normalizedValue);
+          return;
+        }
+      }
+
+      input.value = normalizedValue;
     }
 
     function applyFieldValues(values) {
@@ -323,9 +467,19 @@
           continue;
         }
 
-        const value = values[field.name];
-        input.value = value === null || value === undefined ? "" : String(value);
+        setFieldValue(field, input, values[field.name]);
       }
+    }
+
+    function readFieldValue(field, input) {
+      if (field.input === "markdown") {
+        const editor = markdownEditors.get(field.name);
+        if (editor) {
+          return editor.value();
+        }
+      }
+
+      return String(input.value || "");
     }
 
     function buildDeployMessage(data, mode) {
@@ -443,7 +597,7 @@
           const raw = String(input.value || "").trim();
           fields[field.name] = raw === "" ? null : Number(raw);
         } else {
-          fields[field.name] = String(input.value || "");
+          fields[field.name] = readFieldValue(field, input);
         }
       }
 

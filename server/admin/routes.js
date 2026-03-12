@@ -1,5 +1,6 @@
 "use strict";
 
+const path = require("node:path");
 const fastifyStatic = require("@fastify/static");
 
 function sendError(reply, error) {
@@ -38,6 +39,12 @@ function registerRoutes(app, input) {
     root: adminDir,
     prefix: "/admin/",
     index: ["index.html"],
+  });
+
+  app.register(fastifyStatic, {
+    root: path.resolve(adminDir, "..", "node_modules", "easymde", "dist"),
+    prefix: "/admin/assets/vendor/easymde/",
+    decorateReply: false,
   });
 
   app.get("/admin", async (_, reply) => {

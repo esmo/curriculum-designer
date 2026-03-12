@@ -83,7 +83,9 @@ function createSchemaService(input) {
       hint: sanitizeSingleLine(field.hint || ""),
       width: normalizedWidth,
       rows:
-        inputType === "textarea" && Number.isInteger(field.rows) && field.rows > 0
+        (inputType === "textarea" || inputType === "markdown") &&
+        Number.isInteger(field.rows) &&
+        field.rows > 0
           ? field.rows
           : undefined,
       min:

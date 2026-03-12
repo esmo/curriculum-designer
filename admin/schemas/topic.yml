@@ -52,7 +52,7 @@ fields:
     width: full
   - name: content
     label: Inhalt (Markdown)
-    input: textarea
+    input: markdown
     required: false
     rows: 16
     placeholder: "# {{title}}"

@@ -288,14 +288,20 @@ fields:
     label: Beschreibung
     input: textarea
     required: true
+  - name: content
+    label: Inhalt
+    input: markdown
+    required: false
 ```
 
 Notes:
 
 - `fields` drive both form rendering and frontmatter generation.
+- supported `input` values are `text`, `textarea`, `markdown`, `number`, `tags`, `select`
 - `title`, `track`, and `description` are required by the server.
 - `slug` is optional and auto-generated from `title` if empty.
-- `content` is written as Markdown body, all other fields go to frontmatter.
+- `content` is written as Markdown body, all other fields go to frontmatter
+- `input: markdown` renders a Markdown editor with toolbar and preview in the admin UI
 - use spaces (no tabs) and 2-space indentation in schema YAML files.
 
 ## Nginx Reverse Proxy

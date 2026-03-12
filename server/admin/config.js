@@ -104,7 +104,14 @@ function loadConfig(env = process.env) {
       env.BLENDER_CURRICULUM_SESSION_TTL_SECONDS,
       60 * 60 * 12
     ),
-    allowedFieldInputs: new Set(["text", "textarea", "number", "tags", "select"]),
+    allowedFieldInputs: new Set([
+      "text",
+      "textarea",
+      "markdown",
+      "number",
+      "tags",
+      "select",
+    ]),
   };
 }
 
