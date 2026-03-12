@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+DEFAULT_ENV_FILE="/etc/blender-curriculum/blender-curriculum.env"
+
 REPO_DIR="${BLENDER_CURRICULUM_REPO_DIR:-}"
 WEB_ROOT="${BLENDER_CURRICULUM_WEB_ROOT:-}"
 BRANCH="${BLENDER_CURRICULUM_BRANCH:-}"
@@ -17,7 +19,7 @@ SESSION_COOKIE_SECURE="${BLENDER_CURRICULUM_SESSION_COOKIE_SECURE:-auto}"
 MIGRATE_CONTENT="${BLENDER_CURRICULUM_MIGRATE_CONTENT:-true}"
 OVERWRITE_ENV="${BLENDER_CURRICULUM_OVERWRITE_ENV:-false}"
 INSTALL_DEPS="${BLENDER_CURRICULUM_INSTALL_DEPS:-false}"
-SETUP_DIRENV="${BLENDER_CURRICULUM_SETUP_DIRENV:-true}"
+SETUP_DIRENV="${BLENDER_CURRICULUM_SETUP_DIRENV:-false}"
 ADMIN_SERVICE="${BLENDER_CURRICULUM_ADMIN_SERVICE:-}"
 SYSTEMD_UNIT_NAME="${BLENDER_CURRICULUM_SYSTEMD_UNIT_NAME:-blender-curriculum-admin.service}"
 NGINX_SNIPPET_NAME="${BLENDER_CURRICULUM_NGINX_SNIPPET_NAME:-blender-curriculum-admin.conf}"
@@ -50,6 +52,20 @@ require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     fail "Missing required command: $1"
   fi
+}
+
+default_env_file_path() {
+  if [ -n "$ENV_FILE" ]; then
+    printf '%s' "$ENV_FILE"
+    return
+  fi
+
+  if [ -f "$DEFAULT_ENV_FILE" ]; then
+    printf '%s' "$DEFAULT_ENV_FILE"
+    return
+  fi
+
+  printf '%s' "$DEFAULT_ENV_FILE"
 }
 
 default_service_user() {
@@ -168,7 +184,7 @@ prompt_secret_with_prefill() {
 }
 
 collect_configuration() {
-  prompt_with_prefill ENV_FILE "Env file path (BLENDER_CURRICULUM_ENV_FILE)" "/etc/blender-curriculum/deploy.env"
+  prompt_with_prefill ENV_FILE "Env file path (BLENDER_CURRICULUM_ENV_FILE)" "$(default_env_file_path)"
   load_existing_env_defaults
 
   prompt_with_prefill REPO_DIR "Repository path (BLENDER_CURRICULUM_REPO_DIR)" "/srv/blender-curriculum/repo"
@@ -447,9 +463,10 @@ main() {
 
   log "Installation complete."
   log "Next steps:"
-  log "  set -a; source '$ENV_FILE'; set +a; '$REPO_DIR/ops/deploy-pull.sh'"
+  log "  '$REPO_DIR/ops/deploy-pull.sh'"
+  log "  eval \"\$('$REPO_DIR/ops/deploy-pull.sh' print-env)\""
   log "  Create the first admin user:"
-  log "    cd '$REPO_DIR' && npm run admin:users -- set '$ADMIN_USER_FILE' admin"
+  log "    cd '$REPO_DIR' && npm run admin:users -- set admin"
   if [ "$(id -u)" -eq 0 ]; then
     log "  systemctl daemon-reload"
     log "  systemctl enable --now '$SYSTEMD_UNIT_NAME'"

@@ -1,6 +1,121 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+DEFAULT_ENV_FILE="/etc/blender-curriculum/blender-curriculum.env"
+
+resolve_env_file() {
+  if [ -n "${BLENDER_CURRICULUM_ENV_FILE:-}" ]; then
+    printf '%s\n' "$BLENDER_CURRICULUM_ENV_FILE"
+    return
+  fi
+
+  if [ -f "$DEFAULT_ENV_FILE" ]; then
+    printf '%s\n' "$DEFAULT_ENV_FILE"
+    return
+  fi
+
+  printf '%s\n' "$DEFAULT_ENV_FILE"
+}
+
+remember_override() {
+  local name="$1"
+  local has_name="HAS_OVERRIDE_${name}"
+  local value_name="OVERRIDE_${name}"
+
+  if [ "${!name+x}" = "x" ]; then
+    printf -v "$has_name" '%s' "true"
+    printf -v "$value_name" '%s' "${!name}"
+  else
+    printf -v "$has_name" '%s' "false"
+  fi
+}
+
+restore_override() {
+  local name="$1"
+  local has_name="HAS_OVERRIDE_${name}"
+  local value_name="OVERRIDE_${name}"
+
+  if [ "${!has_name:-false}" = "true" ]; then
+    export "$name=${!value_name}"
+  fi
+}
+
+load_runtime_env() {
+  local env_file
+  env_file="$(resolve_env_file)"
+
+  remember_override "BLENDER_CURRICULUM_REPO_DIR"
+  remember_override "BLENDER_CURRICULUM_BRANCH"
+  remember_override "BLENDER_CURRICULUM_WEB_ROOT"
+  remember_override "BLENDER_CURRICULUM_THEME_ROOT"
+  remember_override "BLENDER_CURRICULUM_CONTENT_ROOT"
+  remember_override "BLENDER_CURRICULUM_ADMIN_SERVICE"
+  remember_override "BLENDER_CURRICULUM_FORCE_DEPLOY"
+  remember_override "BLENDER_CURRICULUM_ALLOW_DIRTY"
+  remember_override "BLENDER_CURRICULUM_ENV_FILE"
+
+  if [ -f "$env_file" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$env_file"
+    set +a
+  fi
+
+  export BLENDER_CURRICULUM_ENV_FILE="$env_file"
+  restore_override "BLENDER_CURRICULUM_REPO_DIR"
+  restore_override "BLENDER_CURRICULUM_BRANCH"
+  restore_override "BLENDER_CURRICULUM_WEB_ROOT"
+  restore_override "BLENDER_CURRICULUM_THEME_ROOT"
+  restore_override "BLENDER_CURRICULUM_CONTENT_ROOT"
+  restore_override "BLENDER_CURRICULUM_ADMIN_SERVICE"
+  restore_override "BLENDER_CURRICULUM_FORCE_DEPLOY"
+  restore_override "BLENDER_CURRICULUM_ALLOW_DIRTY"
+  restore_override "BLENDER_CURRICULUM_ENV_FILE"
+}
+
+print_env_exports() {
+  local name
+  for name in \
+    BLENDER_CURRICULUM_ENV_FILE \
+    BLENDER_CURRICULUM_REPO_DIR \
+    BLENDER_CURRICULUM_BRANCH \
+    BLENDER_CURRICULUM_WEB_ROOT \
+    BLENDER_CURRICULUM_THEME_ROOT \
+    BLENDER_CURRICULUM_CONTENT_ROOT \
+    BLENDER_CURRICULUM_ADMIN_HOST \
+    BLENDER_CURRICULUM_ADMIN_PORT \
+    BLENDER_CURRICULUM_ADMIN_USER_FILE \
+    BLENDER_CURRICULUM_SESSION_SECRET \
+    BLENDER_CURRICULUM_SESSION_COOKIE_NAME \
+    BLENDER_CURRICULUM_SESSION_COOKIE_SECURE \
+    BLENDER_CURRICULUM_SESSION_TTL_SECONDS \
+    BLENDER_CURRICULUM_ADMIN_SERVICE \
+    BLENDER_CURRICULUM_FORCE_DEPLOY \
+    BLENDER_CURRICULUM_ALLOW_DIRTY \
+    BLENDER_CURRICULUM_SCHEMA_ROOT
+  do
+    if [ "${!name+x}" = "x" ]; then
+      printf 'export %s=%q\n' "$name" "${!name}"
+    fi
+  done
+}
+
+COMMAND="${1:-deploy}"
+
+load_runtime_env
+
+if [ "$COMMAND" = "print-env" ]; then
+  print_env_exports
+  exit 0
+fi
+
+if [ "$COMMAND" != "deploy" ]; then
+  echo "Usage: $0 [deploy|print-env]" >&2
+  exit 1
+fi
+
+shift || true
+
 REPO_DIR="${BLENDER_CURRICULUM_REPO_DIR:-/srv/blender-curriculum/repo}"
 BRANCH="${BLENDER_CURRICULUM_BRANCH:-main}"
 WEB_ROOT="${BLENDER_CURRICULUM_WEB_ROOT:-/var/www/blender-curriculum}"

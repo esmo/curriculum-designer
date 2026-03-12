@@ -14,7 +14,7 @@ Example with explicit variables:
 sudo BLENDER_CURRICULUM_REPO_DIR=/srv/blender-curriculum/repo \
   BLENDER_CURRICULUM_WEB_ROOT=/var/www/blender-curriculum \
   BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content \
-  BLENDER_CURRICULUM_ENV_FILE=/etc/blender-curriculum/deploy.env \
+  BLENDER_CURRICULUM_ENV_FILE=/etc/blender-curriculum/blender-curriculum.env \
   /srv/blender-curriculum/repo/ops/install-server.sh
 ```
 
@@ -32,17 +32,16 @@ priority as prompt defaults.
 After installation:
 
 ```bash
-set -a
-source /etc/blender-curriculum/deploy.env
-set +a
 /srv/blender-curriculum/repo/ops/deploy-pull.sh
+eval "$(/srv/blender-curriculum/repo/ops/deploy-pull.sh print-env)"
 cd /srv/blender-curriculum/repo
-npm run admin:users -- set /etc/blender-curriculum/admin-users.txt admin
+npm run admin:users -- set admin
 ```
 
-`ops/install-server.sh` also creates `$REPO_DIR/.envrc` by default
-(`BLENDER_CURRICULUM_SETUP_DIRENV=true`) so `direnv` can auto-load
-`BLENDER_CURRICULUM_*` variables when you enter the repository.
+`ops/deploy-pull.sh` loads the runtime env file automatically before deploy.
+`ops/deploy-pull.sh print-env` prints `export ...` lines for the currently resolved configuration, so `eval "$(...)"` refreshes the variables in the current shell after config changes.
+
+If you explicitly want `direnv`, `ops/install-server.sh` can still create `$REPO_DIR/.envrc` when `BLENDER_CURRICULUM_SETUP_DIRENV=true`.
 
 If installed as root, finalize services:
 
@@ -66,6 +65,18 @@ sudo nginx -t && sudo systemctl reload nginx
 ## Environment Variables (Prefixed)
 
 Use prefixed names to avoid collisions with other software.
+
+`BLENDER_CURRICULUM_ENV_FILE` points to the central runtime env file.
+Default path: `/etc/blender-curriculum/blender-curriculum.env`
+
+`ops/deploy-pull.sh` resolves the runtime env file in this order:
+
+1. explicit `BLENDER_CURRICULUM_ENV_FILE`
+2. `/etc/blender-curriculum/blender-curriculum.env`
+
+`ops/deploy-pull.sh print-env` uses the same resolution order and prints shell
+exports for the resolved configuration, so `eval "$(...)"` refreshes the
+current terminal session after config changes.
 
 Core deployment variables:
 
@@ -106,6 +117,14 @@ Admin runtime variables:
 
 `BLENDER_CURRICULUM_SESSION_SECRET` must be at least 32 characters long.
 
+Session variable meanings:
+
+- `BLENDER_CURRICULUM_ADMIN_USER_FILE`: absolute or relative path to the admin user file. The server resolves it to an absolute path and requires at least one valid user entry before startup.
+- `BLENDER_CURRICULUM_SESSION_SECRET`: secret used to sign the session cookie. Required, minimum 32 characters.
+- `BLENDER_CURRICULUM_SESSION_COOKIE_NAME`: cookie name for the admin browser session. Default: `bc_admin_session`.
+- `BLENDER_CURRICULUM_SESSION_COOKIE_SECURE`: whether the session cookie should be sent only via HTTPS. Allowed values: `auto`, `true`, `false`. Recommended for production behind HTTPS reverse proxy: `auto`. Recommended for local HTTP development only: `false`.
+- `BLENDER_CURRICULUM_SESSION_TTL_SECONDS`: session lifetime in seconds. Default: `43200` (12 hours).
+
 ## Deployment Model
 
 Production deployment is server-initiated via `ops/deploy-pull.sh`.
@@ -131,7 +150,7 @@ BLENDER_CURRICULUM_CONTENT_ROOT=/srv/blender-curriculum-content \
 /srv/blender-curriculum/repo/ops/deploy-pull.sh
 ```
 
-Example `.env` file (`/etc/blender-curriculum/deploy.env`):
+Example runtime env file (`/etc/blender-curriculum/blender-curriculum.env`):
 
 ```bash
 BLENDER_CURRICULUM_REPO_DIR=/srv/blender-curriculum/repo
@@ -144,7 +163,10 @@ BLENDER_CURRICULUM_ADMIN_PORT=8787
 BLENDER_CURRICULUM_ADMIN_USER_FILE=/etc/blender-curriculum/admin-users.txt
 BLENDER_CURRICULUM_SESSION_SECRET=change-me-to-a-long-random-string
 BLENDER_CURRICULUM_SESSION_COOKIE_SECURE=auto
-# Optional:
+# Session optional:
+# BLENDER_CURRICULUM_SESSION_COOKIE_NAME=bc_admin_session
+# BLENDER_CURRICULUM_SESSION_TTL_SECONDS=43200
+# Deployment optional:
 # BLENDER_CURRICULUM_ADMIN_SERVICE=blender-curriculum-admin.service
 # BLENDER_CURRICULUM_ALLOW_DIRTY=false
 # BLENDER_CURRICULUM_FORCE_DEPLOY=false
@@ -153,7 +175,7 @@ BLENDER_CURRICULUM_SESSION_COOKIE_SECURE=auto
 Recommended permissions:
 
 ```bash
-sudo chmod 600 /etc/blender-curriculum/deploy.env
+sudo chmod 600 /etc/blender-curriculum/blender-curriculum.env
 ```
 
 ## Admin Server (Production)
@@ -175,7 +197,7 @@ Type=simple
 User=deploy
 Group=deploy
 WorkingDirectory=/srv/blender-curriculum/repo
-EnvironmentFile=/etc/blender-curriculum/deploy.env
+EnvironmentFile=/etc/blender-curriculum/blender-curriculum.env
 ExecStart=/usr/bin/env npm run admin
 Restart=always
 RestartSec=3
@@ -196,6 +218,7 @@ Admin save behavior:
 ## Admin User File
 
 Local admin logins are read from `BLENDER_CURRICULUM_ADMIN_USER_FILE`.
+The file is required for local admin login and must contain at least one valid user before the admin server can start.
 The file format is:
 
 ```txt
@@ -210,18 +233,24 @@ Rules:
 - hashes must be `argon2id`
 - blank lines and lines starting with `#` are ignored
 - changes to the file are picked up on the next login attempt; no admin-server restart is required
+- existing sessions stay valid until logout or expiry; deleting a user from the file prevents new logins but does not immediately invalidate an already active session
 
 Manage users with the included CLI:
 
 ```bash
 cd /srv/blender-curriculum/repo
-npm run admin:users -- set /etc/blender-curriculum/admin-users.txt admin
-npm run admin:users -- set /etc/blender-curriculum/admin-users.txt editor
-npm run admin:users -- list /etc/blender-curriculum/admin-users.txt
-npm run admin:users -- delete /etc/blender-curriculum/admin-users.txt editor
+npm run admin:users -- set admin
+npm run admin:users -- set editor
+npm run admin:users -- list
+npm run admin:users -- delete editor
 ```
 
 The `set` command prompts for a password, hashes it with `argon2id`, and updates the file in place.
+If `BLENDER_CURRICULUM_ADMIN_USER_FILE` is not loaded in the current shell, you can still pass the file path explicitly:
+
+```bash
+npm run admin:users -- set /etc/blender-curriculum/admin-users.txt admin
+```
 
 Recommended permissions:
 

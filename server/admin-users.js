@@ -13,9 +13,9 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  npm run admin:users -- list <file>",
-      "  npm run admin:users -- set <file> <username>",
-      "  npm run admin:users -- delete <file> <username>",
+      "  npm run admin:users -- list [file]",
+      "  npm run admin:users -- set [file] <username>",
+      "  npm run admin:users -- delete [file] <username>",
       "",
     ].join("\n")
   );
@@ -27,6 +27,42 @@ function requiredArg(args, index, label) {
     throw new Error(`Missing ${label}.`);
   }
   return value;
+}
+
+function defaultUserFile() {
+  const filePath = String(process.env.BLENDER_CURRICULUM_ADMIN_USER_FILE || "").trim();
+  if (!filePath) {
+    throw new Error(
+      "Missing admin user file. Pass it explicitly or set BLENDER_CURRICULUM_ADMIN_USER_FILE."
+    );
+  }
+  return filePath;
+}
+
+function resolveListFilePath(args) {
+  const filePath = String(args[1] || "").trim();
+  return filePath || defaultUserFile();
+}
+
+function resolveMutationArgs(args) {
+  const firstArg = String(args[1] || "").trim();
+  const secondArg = String(args[2] || "").trim();
+
+  if (firstArg && secondArg) {
+    return {
+      filePath: firstArg,
+      userName: secondArg,
+    };
+  }
+
+  if (firstArg) {
+    return {
+      filePath: defaultUserFile(),
+      userName: firstArg,
+    };
+  }
+
+  throw new Error("Missing user name.");
 }
 
 function setUser(entries, userName, passwordHash) {
@@ -150,7 +186,7 @@ async function main() {
   const command = requiredArg(args, 0, "command");
 
   if (command === "list") {
-    const filePath = requiredArg(args, 1, "file path");
+    const filePath = resolveListFilePath(args);
     const { users } = await readAdminUserFile(filePath);
     for (const userName of users.keys()) {
       process.stdout.write(`${userName}\n`);
@@ -159,8 +195,9 @@ async function main() {
   }
 
   if (command === "set") {
-    const filePath = requiredArg(args, 1, "file path");
-    const userName = normalizeUserName(requiredArg(args, 2, "user name"));
+    const resolved = resolveMutationArgs(args);
+    const filePath = resolved.filePath;
+    const userName = normalizeUserName(resolved.userName);
     const password = await promptPasswordTwice();
     const passwordHash = await hashPassword(password);
     const { entries } = await readAdminUserFile(filePath, {
@@ -175,8 +212,9 @@ async function main() {
   }
 
   if (command === "delete") {
-    const filePath = requiredArg(args, 1, "file path");
-    const userName = normalizeUserName(requiredArg(args, 2, "user name"));
+    const resolved = resolveMutationArgs(args);
+    const filePath = resolved.filePath;
+    const userName = normalizeUserName(resolved.userName);
     const { entries } = await readAdminUserFile(filePath);
     const result = deleteUser(entries, userName);
     if (!result.deleted) {
