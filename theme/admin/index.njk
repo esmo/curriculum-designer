@@ -2,14 +2,22 @@
 
 <main class="admin-page">
   <section class="admin-card">
-    <h1>Curriculum Admin</h1>
-    <p class="admin-page-intro">
-      Erstellt oder aktualisiert Eintraege in <code>content/</code> (oder
-      <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) und startet danach einen Eleventy-Build.
-    </p>
+    <header class="admin-card-header">
+      <p class="admin-eyebrow">Admin Workspace</p>
+      <h1 class="admin-page-title">Curriculum Admin</h1>
+      <p class="admin-page-intro">
+        Erstellt oder aktualisiert Eintraege in <code>content/</code> (oder
+        <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) und startet danach einen Eleventy-Build.
+      </p>
+    </header>
 
-    <section id="login-panel" class="admin-auth" hidden>
-      <h2>Anmeldung</h2>
+    <section id="login-panel" class="admin-auth admin-panel" hidden>
+      <div class="admin-panel-header">
+        <h2>Anmeldung</h2>
+        <p class="hint admin-panel-intro">
+          Melde dich an, um Eintraege anzulegen, zu bearbeiten oder zu loeschen.
+        </p>
+      </div>
       <form id="login-form" class="admin-auth-form" autocomplete="on">
         <div class="admin-grid-2 admin-auth-fields">
           <label>
@@ -30,30 +38,35 @@
       </form>
     </section>
 
-    <section id="editor-panel" hidden>
+    <section id="editor-panel" class="admin-editor admin-panel" hidden>
       <div class="admin-session-row">
-        <span>Eingeloggt als <strong id="session-user-name"></strong></span>
-        <button id="logout-btn" type="button" class="danger">Abmelden</button>
+        <div class="admin-session-copy">
+          <span class="admin-session-label">Session</span>
+          <span>Eingeloggt als <strong id="session-user-name"></strong></span>
+        </div>
+        <button id="logout-btn" type="button" class="secondary">Abmelden</button>
       </div>
 
       <form id="entry-form" class="admin-form">
-        <div class="admin-grid-2">
+        <div class="admin-grid-2 admin-form-head">
           <label>
             Typ
             <select id="entry-type" name="entryType" required></select>
           </label>
 
-          <p class="hint">Felder werden aus YAML-Schemata geladen.</p>
+          <p class="hint admin-schema-hint">
+            Felder werden aus YAML-Schemata geladen und direkt in Markdown-Dateien geschrieben.
+          </p>
         </div>
 
         <div id="fields-root" class="fields-grid"></div>
 
-        <label class="checkbox">
+        <label class="checkbox admin-check-card">
           <input type="checkbox" name="overwrite" />
-          Bestehende Datei mit gleichem Slug ueberschreiben
+          <span>Bestehende Datei mit gleichem Slug ueberschreiben</span>
         </label>
 
-        <div class="actions">
+        <div class="actions admin-form-actions">
           <button id="submit-btn" type="submit">Speichern</button>
           <button id="delete-btn" class="danger" type="button" hidden>Loeschen</button>
           <div id="status" class="status"></div>
@@ -347,10 +360,32 @@
     function createField(field) {
       const elementId = `field-${field.name}`;
       const wrapper = document.createElement("label");
-      wrapper.className = `field width-${field.width || "full"}`;
+      wrapper.className = [
+        "field",
+        `width-${field.width || "full"}`,
+        `field-kind-${field.input || "text"}`,
+        `field-name-${field.name}`,
+        field.required ? "is-required" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
 
-      const title = document.createTextNode(field.label);
-      wrapper.appendChild(title);
+      const header = document.createElement("span");
+      header.className = "field-header";
+
+      const title = document.createElement("span");
+      title.className = "field-title";
+      title.textContent = field.label;
+      header.appendChild(title);
+
+      if (field.required) {
+        const badge = document.createElement("span");
+        badge.className = "field-badge";
+        badge.textContent = "Pflicht";
+        header.appendChild(badge);
+      }
+
+      wrapper.appendChild(header);
 
       const control = fieldInputElement(field, elementId);
       control.dataset.fieldName = field.name;
