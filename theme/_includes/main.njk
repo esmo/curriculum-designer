@@ -6,87 +6,93 @@
     <link rel="stylesheet" href="/assets/css/main.css" />
   </head>
   <body>
+    {% set isAdminPage = page.url == "/admin/" %}
     {% set isEditableEntry = type == "Lesson" or type == "Task" or type == "Topic" or type == "Resource" %}
     {% include "navigation.njk" %}
-    <div class="admin-links">
-      <a class="admin-link" data-admin-login-link href="/admin/">Sign In</a>
-      <span class="admin-user" data-user-name hidden></span>
-      {% if isEditableEntry %}
-        <a
-          class="admin-link admin-link-edit is-hidden"
-          data-admin-edit-link
-          href="/admin/?entryType={{ type | lower }}&slug={{ page.fileSlug }}"
-          >Edit</a
-        >
-      {% endif %}
-    </div>
+    {% if not isAdminPage %}
+      <div class="admin-links">
+        <a class="admin-link" data-admin-login-link href="/admin/">Sign In</a>
+        <span class="admin-user" data-user-name hidden></span>
+        <a class="admin-link is-hidden" data-admin-create-link href="/admin/">New Entry</a>
+        {% if isEditableEntry %}
+          <a
+            class="admin-link admin-link-edit is-hidden"
+            data-admin-edit-link
+            href="/admin/?entryType={{ type | lower }}&slug={{ page.fileSlug }}"
+            >Edit</a
+          >
+        {% endif %}
+      </div>
+    {% endif %}
     {{ content | safe }}
-    <script>
-      (() => {
-        const userNameEl = document.querySelector("[data-user-name]");
-        const editLink = document.querySelector("[data-admin-edit-link]");
-        const loginLink = document.querySelector("[data-admin-login-link]");
-        const createItem = document.querySelector("[data-admin-create-item]");
+    {% if not isAdminPage %}
+      <script>
+        (() => {
+          const userNameEl = document.querySelector("[data-user-name]");
+          const editLink = document.querySelector("[data-admin-edit-link]");
+          const loginLink = document.querySelector("[data-admin-login-link]");
+          const createLink = document.querySelector("[data-admin-create-link]");
 
-        function setUserName(name) {
-          if (!userNameEl) {
-            return;
-          }
-
-          const normalizedName = String(name || "").trim();
-          const hasName = normalizedName.length > 0;
-          userNameEl.hidden = !hasName;
-          userNameEl.textContent = hasName ? normalizedName : "";
-        }
-
-        function setLoggedInState(isLoggedIn) {
-          const loggedIn = Boolean(isLoggedIn);
-
-          if (loginLink) {
-            loginLink.classList.toggle("is-hidden", loggedIn);
-          }
-
-          if (editLink) {
-            editLink.classList.toggle("is-hidden", !loggedIn);
-          }
-
-          if (createItem) {
-            createItem.classList.toggle("is-hidden", !loggedIn);
-          }
-
-          if (!loggedIn) {
-            setUserName("");
-          }
-        }
-
-        const initialUserName = String(window.currentUser?.name || "").trim();
-        setUserName(initialUserName);
-        setLoggedInState(Boolean(initialUserName));
-
-        fetch("/admin/session", { credentials: "same-origin" })
-          .then(async (response) => {
-            if (!response.ok) {
-              setLoggedInState(false);
+          function setUserName(name) {
+            if (!userNameEl) {
               return;
             }
 
-            let payload = null;
-            try {
-              payload = await response.json();
-            } catch (_) {
-              payload = null;
+            const normalizedName = String(name || "").trim();
+            const hasName = normalizedName.length > 0;
+            userNameEl.hidden = !hasName;
+            userNameEl.textContent = hasName ? normalizedName : "";
+          }
+
+          function setLoggedInState(isLoggedIn) {
+            const loggedIn = Boolean(isLoggedIn);
+
+            if (loginLink) {
+              loginLink.classList.toggle("is-hidden", loggedIn);
             }
 
-            const userName = String(payload?.user?.name || "").trim();
-            const isLoggedIn = Boolean(payload?.loggedIn) || Boolean(userName);
+            if (editLink) {
+              editLink.classList.toggle("is-hidden", !loggedIn);
+            }
 
-            setUserName(userName);
-            setLoggedInState(isLoggedIn);
-          })
-          .catch(() => {
-            setLoggedInState(false);
-          });
-      })();
-    </script>
+            if (createLink) {
+              createLink.classList.toggle("is-hidden", !loggedIn);
+            }
+
+            if (!loggedIn) {
+              setUserName("");
+            }
+          }
+
+          const initialUserName = String(window.currentUser?.name || "").trim();
+          setUserName(initialUserName);
+          setLoggedInState(Boolean(initialUserName));
+
+          fetch("/admin/session", { credentials: "same-origin" })
+            .then(async (response) => {
+              if (!response.ok) {
+                setLoggedInState(false);
+                return;
+              }
+
+              let payload = null;
+              try {
+                payload = await response.json();
+              } catch (_) {
+                payload = null;
+              }
+
+              const userName = String(payload?.user?.name || "").trim();
+              const isLoggedIn = Boolean(payload?.loggedIn) || Boolean(userName);
+
+              setUserName(userName);
+              setLoggedInState(isLoggedIn);
+            })
+            .catch(() => {
+              setLoggedInState(false);
+            });
+        })();
+      </script>
+    {% endif %}
   </body>
 </html>

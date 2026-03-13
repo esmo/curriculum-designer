@@ -1,5 +1,3 @@
-<link rel="stylesheet" href="./assets/vendor/easymde/easymde.min.css" />
-
 <main class="admin-page">
   <section class="admin-card">
     <header class="admin-card-header">
@@ -150,7 +148,7 @@
       const userNameEl = document.querySelector("[data-user-name]");
       const editLink = document.querySelector("[data-admin-edit-link]");
       const loginLink = document.querySelector("[data-admin-login-link]");
-      const createItem = document.querySelector("[data-admin-create-item]");
+      const createLink = document.querySelector("[data-admin-create-link]");
 
       if (loginLink) {
         loginLink.classList.toggle("is-hidden", loggedIn);
@@ -160,8 +158,8 @@
         editLink.classList.toggle("is-hidden", !loggedIn);
       }
 
-      if (createItem) {
-        createItem.classList.toggle("is-hidden", !loggedIn);
+      if (createLink) {
+        createLink.classList.toggle("is-hidden", !loggedIn);
       }
 
       if (userNameEl) {
