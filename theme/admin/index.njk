@@ -74,7 +74,6 @@
   </section>
 </main>
 
-<script src="./assets/vendor/easymde/easymde.min.js"></script>
 <script>
   (() => {
     const loginPanel = document.getElementById("login-panel");
@@ -275,89 +274,30 @@
       return input;
     }
 
-    function createMarkdownToolbar() {
+    function createMarkdownCommands() {
       return [
-        {
-          name: "bold",
-          action: EasyMDE.toggleBold,
-          text: "B",
-          title: "Bold",
-        },
-        {
-          name: "italic",
-          action: EasyMDE.toggleItalic,
-          text: "I",
-          title: "Italic",
-        },
-        {
-          name: "heading",
-          action: EasyMDE.toggleHeadingSmaller,
-          text: "H",
-          title: "Heading",
-        },
+        "bold",
+        "italic",
+        "strikethrough",
         "|",
-        {
-          name: "quote",
-          action: EasyMDE.toggleBlockquote,
-          text: "\"",
-          title: "Quote",
-        },
-        {
-          name: "unordered-list",
-          action: EasyMDE.toggleUnorderedList,
-          text: "List",
-          title: "Bullet List",
-        },
-        {
-          name: "ordered-list",
-          action: EasyMDE.toggleOrderedList,
-          text: "1.",
-          title: "Numbered List",
-        },
-        {
-          name: "link",
-          action: EasyMDE.drawLink,
-          text: "Link",
-          title: "Link",
-        },
-        {
-          name: "code",
-          action: EasyMDE.toggleCodeBlock,
-          text: "{}",
-          title: "Code Block",
-        },
-        {
-          name: "table",
-          action: EasyMDE.drawTable,
-          text: "Table",
-          title: "Table",
-        },
+        "code",
         "|",
-        {
-          name: "preview",
-          action: EasyMDE.togglePreview,
-          text: "Preview",
-          noDisable: true,
-          title: "Preview",
-        },
-        {
-          name: "side-by-side",
-          action: EasyMDE.toggleSideBySide,
-          text: "Split",
-          title: "Editor and Preview",
-        },
-        {
-          name: "fullscreen",
-          action: EasyMDE.toggleFullScreen,
-          text: "Full",
-          title: "Full Screen",
-        },
+        "h1",
+        "h2",
+        "|",
+        "ul",
+        "ol",
+        "|",
+        "blockquote",
+        "hr",
+        "|",
+        "insertLink",
       ];
     }
 
     function createField(field) {
       const elementId = `field-${field.name}`;
-      const wrapper = document.createElement("label");
+      const wrapper = document.createElement("div");
       wrapper.className = [
         "field",
         `width-${field.width || "full"}`,
@@ -387,8 +327,48 @@
 
       const control = fieldInputElement(field, elementId);
       control.dataset.fieldName = field.name;
-      control.required = field.required === true;
-      wrapper.appendChild(control);
+      control.required = field.required === true && field.input !== "markdown";
+      if (field.required === true && field.input === "markdown") {
+        control.dataset.required = "true";
+      }
+
+      if (field.input === "markdown") {
+        const shell = document.createElement("div");
+        shell.className = "admin-markdown-shell";
+
+        const toolbarRow = document.createElement("div");
+        toolbarRow.className = "admin-markdown-toolbar";
+
+        const commandBar = document.createElement("div");
+        commandBar.className = "admin-markdown-commandbar";
+        toolbarRow.appendChild(commandBar);
+
+        const previewButton = document.createElement("button");
+        previewButton.type = "button";
+        previewButton.className = "secondary admin-markdown-preview-toggle";
+        previewButton.dataset.fieldName = field.name;
+        previewButton.textContent = "Preview";
+        toolbarRow.appendChild(previewButton);
+
+        const stage = document.createElement("div");
+        stage.className = "admin-markdown-stage";
+        if (field.name === "content") {
+          stage.classList.add("is-tall");
+        }
+        stage.appendChild(control);
+
+        const previewPanel = document.createElement("div");
+        previewPanel.className = "admin-markdown-preview";
+        previewPanel.dataset.fieldName = field.name;
+        previewPanel.hidden = true;
+
+        shell.appendChild(toolbarRow);
+        shell.appendChild(stage);
+        shell.appendChild(previewPanel);
+        wrapper.appendChild(shell);
+      } else {
+        wrapper.appendChild(control);
+      }
 
       if (field.hint) {
         const hint = document.createElement("span");
@@ -404,9 +384,110 @@
       return fieldsRoot.querySelector(`[data-field-name="${fieldName}"]`);
     }
 
+    function getMarkdownEditorEntry(fieldName) {
+      return markdownEditors.get(fieldName) || null;
+    }
+
+    function setMarkdownPreviewButtonState(entry) {
+      if (!entry?.previewButton) {
+        return;
+      }
+
+      entry.previewButton.textContent = entry.previewVisible ? "Hide Preview" : "Preview";
+      entry.previewButton.classList.toggle("is-active", entry.previewVisible);
+    }
+
+    async function requestMarkdownPreview(fieldName) {
+      const entry = getMarkdownEditorEntry(fieldName);
+      if (!entry || !entry.previewVisible || !entry.previewPanel) {
+        return;
+      }
+
+      entry.previewRequestId += 1;
+      const requestId = entry.previewRequestId;
+      entry.previewPanel.innerHTML =
+        '<p class="admin-markdown-preview-status">Rendering preview...</p>';
+
+      const { response, data } = await fetchJson("/admin/api/preview", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          markdown: entry.editor.getContent(),
+        }),
+      });
+
+      const latestEntry = getMarkdownEditorEntry(fieldName);
+      if (!latestEntry || latestEntry.previewRequestId !== requestId) {
+        return;
+      }
+
+      if (!response.ok) {
+        latestEntry.previewPanel.innerHTML = `<p class="admin-markdown-preview-status is-error">${String(
+          data?.error || "Preview could not be rendered."
+        )}</p>`;
+        return;
+      }
+
+      const html = String(data?.html || "").trim();
+      latestEntry.previewPanel.innerHTML = html
+        ? html
+        : '<p class="admin-markdown-preview-status">Preview is empty.</p>';
+    }
+
+    function scheduleMarkdownPreview(fieldName, delayMs = 160) {
+      const entry = getMarkdownEditorEntry(fieldName);
+      if (!entry || !entry.previewVisible) {
+        return;
+      }
+
+      if (entry.previewTimer) {
+        window.clearTimeout(entry.previewTimer);
+      }
+
+      entry.previewTimer = window.setTimeout(() => {
+        entry.previewTimer = 0;
+        requestMarkdownPreview(fieldName).catch((error) => {
+          const latestEntry = getMarkdownEditorEntry(fieldName);
+          if (!latestEntry?.previewPanel) {
+            return;
+          }
+
+          latestEntry.previewPanel.innerHTML = `<p class="admin-markdown-preview-status is-error">${String(
+            error?.message || "Preview could not be rendered."
+          )}</p>`;
+        });
+      }, delayMs);
+    }
+
+    async function toggleMarkdownPreview(fieldName) {
+      const entry = getMarkdownEditorEntry(fieldName);
+      if (!entry || !entry.previewPanel) {
+        return;
+      }
+
+      entry.previewVisible = !entry.previewVisible;
+      entry.previewPanel.hidden = !entry.previewVisible;
+      setMarkdownPreviewButtonState(entry);
+
+      if (!entry.previewVisible) {
+        if (entry.previewTimer) {
+          window.clearTimeout(entry.previewTimer);
+          entry.previewTimer = 0;
+        }
+        return;
+      }
+
+      await requestMarkdownPreview(fieldName);
+    }
+
     function destroyMarkdownEditors() {
-      for (const editor of markdownEditors.values()) {
-        editor.toTextArea();
+      // TinyMDE currently does not expose a destroy API.
+      for (const entry of markdownEditors.values()) {
+        if (entry.previewTimer) {
+          window.clearTimeout(entry.previewTimer);
+        }
       }
       markdownEditors = new Map();
     }
@@ -417,7 +498,10 @@
           continue;
         }
 
-        if (typeof window.EasyMDE !== "function") {
+        if (
+          typeof window.TinyMDE?.Editor !== "function" ||
+          typeof window.TinyMDE?.CommandBar !== "function"
+        ) {
           throw new Error("Markdown editor could not be loaded.");
         }
 
@@ -426,23 +510,53 @@
           continue;
         }
 
-        const editor = new EasyMDE({
-          element: textarea,
-          autoDownloadFontAwesome: false,
-          forceSync: true,
-          spellChecker: false,
-          status: false,
-          lineNumbers: false,
-          sideBySideFullscreen: false,
-          minHeight: field.name === "content" ? "420px" : "220px",
+        const shell = textarea.closest(".admin-markdown-shell");
+        const commandBarElement = shell?.querySelector(".admin-markdown-commandbar");
+        const previewButton = shell?.querySelector(".admin-markdown-preview-toggle");
+        const previewPanel = shell?.querySelector(".admin-markdown-preview");
+
+        if (!commandBarElement || !previewButton || !previewPanel) {
+          continue;
+        }
+
+        const editor = new window.TinyMDE.Editor({
+          textarea,
           placeholder: field.placeholder || "",
-          toolbar: createMarkdownToolbar(),
-          renderingConfig: {
-            singleLineBreaks: false,
-          },
         });
 
-        markdownEditors.set(field.name, editor);
+        const commandBar = new window.TinyMDE.CommandBar({
+          element: commandBarElement,
+          editor,
+          commands: createMarkdownCommands(),
+        });
+
+        const entry = {
+          editor,
+          commandBar,
+          textarea,
+          previewButton,
+          previewPanel,
+          previewVisible: false,
+          previewTimer: 0,
+          previewRequestId: 0,
+        };
+
+        previewButton.addEventListener("click", () => {
+          toggleMarkdownPreview(field.name).catch((error) => {
+            previewPanel.innerHTML = `<p class="admin-markdown-preview-status is-error">${String(
+              error?.message || "Preview could not be rendered."
+            )}</p>`;
+          });
+        });
+
+        editor.addEventListener("change", () => {
+          if (entry.previewVisible) {
+            scheduleMarkdownPreview(field.name);
+          }
+        });
+
+        setMarkdownPreviewButtonState(entry);
+        markdownEditors.set(field.name, entry);
       }
     }
 
@@ -470,6 +584,27 @@
       });
     }
 
+    function validateMarkdownRequiredFields() {
+      for (const field of currentSchema?.fields || []) {
+        if (field.input !== "markdown" || field.required !== true) {
+          continue;
+        }
+
+        const input = getFieldElement(field.name);
+        if (!input) {
+          continue;
+        }
+
+        const value = readFieldValue(field, input).trim();
+        if (value.length > 0) {
+          continue;
+        }
+
+        getMarkdownEditorEntry(field.name)?.editor?.e?.focus();
+        throw new Error(`${field.label} is required.`);
+      }
+    }
+
     function renderSchema(schema) {
       destroyMarkdownEditors();
       currentSchema = schema;
@@ -484,9 +619,12 @@
     function setFieldValue(field, input, value) {
       const normalizedValue = value === null || value === undefined ? "" : String(value);
       if (field.input === "markdown") {
-        const editor = markdownEditors.get(field.name);
-        if (editor) {
-          editor.value(normalizedValue);
+        const entry = getMarkdownEditorEntry(field.name);
+        if (entry?.editor) {
+          entry.editor.setContent(normalizedValue);
+          if (entry.previewVisible) {
+            scheduleMarkdownPreview(field.name, 0);
+          }
           return;
         }
       }
@@ -507,9 +645,9 @@
 
     function readFieldValue(field, input) {
       if (field.input === "markdown") {
-        const editor = markdownEditors.get(field.name);
-        if (editor) {
-          return editor.value();
+        const entry = getMarkdownEditorEntry(field.name);
+        if (entry?.editor) {
+          return entry.editor.getContent();
         }
       }
 
@@ -619,6 +757,8 @@
       if (!currentSchema) {
         throw new Error("No active schema loaded.");
       }
+
+      validateMarkdownRequiredFields();
 
       const fields = {};
       for (const field of currentSchema.fields || []) {

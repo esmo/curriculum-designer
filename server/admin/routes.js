@@ -33,6 +33,7 @@ function registerRoutes(app, input) {
     auth,
     schemaService,
     entryService,
+    renderMarkdown,
   } = input;
 
   app.register(fastifyStatic, {
@@ -42,8 +43,8 @@ function registerRoutes(app, input) {
   });
 
   app.register(fastifyStatic, {
-    root: path.resolve(adminDir, "..", "node_modules", "easymde", "dist"),
-    prefix: "/admin/assets/vendor/easymde/",
+    root: path.resolve(adminDir, "..", "node_modules", "tiny-markdown-editor", "dist"),
+    prefix: "/admin/assets/vendor/tiny-mde/",
     decorateReply: false,
   });
 
@@ -116,6 +117,25 @@ function registerRoutes(app, input) {
       try {
         const body = await entryService.readEntry(request.params || {});
         reply.send(body);
+      } catch (error) {
+        sendError(reply, error);
+      }
+    }
+  );
+
+  app.post(
+    "/admin/api/preview",
+    {
+      preHandler: auth.requireAdminAuth,
+    },
+    async (request, reply) => {
+      try {
+        const markdown = String(request.body?.markdown || "");
+        reply.header("cache-control", "no-store");
+        reply.send({
+          ok: true,
+          html: renderMarkdown(markdown),
+        });
       } catch (error) {
         sendError(reply, error);
       }

@@ -1,7 +1,6 @@
-const markdownIt = require("markdown-it");
 const fs = require("node:fs");
 const path = require("node:path");
-const youtubePlugin = require("./markdown-plugins/youtube.js");
+const { createMarkdownLib } = require("./lib/create-markdown-lib");
 const { addFilters } = require("./extensions/filters.js");
 // const { addShortcodes } = require("./extensions/shortcodes.js");
 
@@ -19,11 +18,7 @@ module.exports = function (eleventyConfig) {
     },
   };
 
-  const markdownLib = markdownIt({
-    html: true,
-    breaks: false,
-    linkify: true,
-  }).use(youtubePlugin);
+  const markdownLib = createMarkdownLib();
 
   eleventyConfig.setLibrary("md", markdownLib);
 

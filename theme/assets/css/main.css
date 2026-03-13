@@ -535,77 +535,181 @@ body:has(.admin-page) {
   line-height: 1.55;
 }
 
-.admin-page .EasyMDEContainer {
-  width: 100%;
+.admin-page .admin-markdown-shell {
+  display: grid;
+  gap: 0.8rem;
 }
 
-.admin-page .EasyMDEContainer .editor-toolbar {
+.admin-page .admin-markdown-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.admin-page .admin-markdown-commandbar {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.admin-page .admin-markdown-commandbar .TMCommandBar {
+  height: auto;
   border: 1px solid #ccd7e5;
-  border-bottom: 0;
-  border-radius: 14px 14px 0 0;
+  border-radius: 14px;
   background: linear-gradient(180deg, #f7f9fc, #eef3f8);
-  opacity: 1;
-  padding: 0.3rem;
+  padding: 0.34rem;
+  overflow-x: auto;
 }
 
-.admin-page .EasyMDEContainer .editor-toolbar button {
-  min-width: 2.5rem;
-  padding: 0.42rem 0.56rem;
-  border-radius: 8px;
-  border: 0;
+.admin-page .admin-markdown-commandbar .TMCommandButton {
+  height: 2.35rem;
+  width: 2.35rem;
+  margin-right: 0.35rem;
+  padding: 0.38rem;
+  border-radius: 10px;
   color: #17315f;
+  fill: #17315f;
+  font-size: 0.95rem;
+  line-height: 1.5rem;
+}
+
+.admin-page .admin-markdown-commandbar .TMCommandDivider {
+  height: 2rem;
+  margin: 0.15rem 0.55rem 0.15rem 0.2rem;
+  border-left: 1px solid #ccd7e5;
+  border-right: 0;
+}
+
+.admin-page .admin-markdown-commandbar .TMCommandButton_Active {
+  color: #0f3fa9;
+  fill: #0f3fa9;
+  background: rgba(19, 72, 201, 0.14);
+}
+
+.admin-page .admin-markdown-commandbar .TMCommandButton_Inactive {
   background: transparent;
-  font-size: 0.85rem;
 }
 
-.admin-page .EasyMDEContainer .editor-toolbar button:hover,
-.admin-page .EasyMDEContainer .editor-toolbar button.active {
-  background: rgba(19, 72, 201, 0.12);
+.admin-page .admin-markdown-commandbar .TMCommandButton_Disabled {
+  color: #90a0b6;
+  fill: #90a0b6;
 }
 
-.admin-page .EasyMDEContainer .CodeMirror,
-.admin-page .EasyMDEContainer .editor-preview,
-.admin-page .EasyMDEContainer .editor-preview-side {
+.admin-page .admin-markdown-commandbar .TMCommandButton_Active:hover,
+.admin-page .admin-markdown-commandbar .TMCommandButton_Inactive:hover {
+  background: rgba(19, 72, 201, 0.1);
+}
+
+.admin-page .admin-markdown-preview-toggle {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 8.5rem;
+  padding-inline: 1rem;
+}
+
+.admin-page .admin-markdown-preview-toggle.is-active {
+  background: #e8f0ff;
+  color: #17315f;
+  border-color: #b8caee;
+}
+
+.admin-page .admin-markdown-stage,
+.admin-page .admin-markdown-preview {
   border: 1px solid #ccd7e5;
+  border-radius: 16px;
   background: #fff;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.admin-page .EasyMDEContainer .CodeMirror {
-  border-radius: 0 0 14px 14px;
-  min-height: 360px;
+.admin-page .admin-markdown-stage {
+  overflow: auto;
 }
 
-.admin-page .EasyMDEContainer .editor-preview,
-.admin-page .EasyMDEContainer .editor-preview-side {
+.admin-page .admin-markdown-stage .TinyMDE {
+  min-height: 260px;
+  padding: 0.95rem 1rem 1.15rem;
+  color: #122033;
+  font: inherit;
+  line-height: 1.6;
+}
+
+.admin-page .admin-markdown-stage.is-tall .TinyMDE {
+  min-height: 420px;
+}
+
+.admin-page .admin-markdown-stage .TinyMDE:focus {
+  box-shadow: inset 0 0 0 1px #4c74d7;
+}
+
+.admin-page .admin-markdown-stage .TMBlockquote {
+  margin-left: 0;
+  padding-left: 0.9rem;
+  border-left-color: #9eb4de;
+}
+
+.admin-page .admin-markdown-stage .TMCode,
+.admin-page .admin-markdown-stage .TMFencedCodeBacktick,
+.admin-page .admin-markdown-stage .TMFencedCodeTilde,
+.admin-page .admin-markdown-stage .TMIndentedCode {
+  background: #f1f5fb;
+  border-color: #d6e1f0;
+}
+
+.admin-page .admin-markdown-preview {
   padding: 1rem 1.1rem;
 }
 
-.admin-page .EasyMDEContainer .editor-preview-side {
-  border-radius: 14px;
+.admin-page .admin-markdown-preview-status {
+  margin: 0;
+  color: #5b6b82;
 }
 
-.admin-page .EasyMDEContainer .editor-preview h1,
-.admin-page .EasyMDEContainer .editor-preview h2,
-.admin-page .EasyMDEContainer .editor-preview h3,
-.admin-page .EasyMDEContainer .editor-preview-side h1,
-.admin-page .EasyMDEContainer .editor-preview-side h2,
-.admin-page .EasyMDEContainer .editor-preview-side h3 {
+.admin-page .admin-markdown-preview-status.is-error {
+  color: #9f1d1d;
+}
+
+.admin-page .admin-markdown-preview h1,
+.admin-page .admin-markdown-preview h2,
+.admin-page .admin-markdown-preview h3 {
   margin-top: 1.1em;
   margin-bottom: 0.45em;
 }
 
-.admin-page .EasyMDEContainer .editor-preview p,
-.admin-page .EasyMDEContainer .editor-preview-side p {
+.admin-page .admin-markdown-preview p,
+.admin-page .admin-markdown-preview ul,
+.admin-page .admin-markdown-preview ol {
   margin: 0 0 0.85em;
 }
 
-.admin-page .EasyMDEContainer .editor-preview pre,
-.admin-page .EasyMDEContainer .editor-preview-side pre {
+.admin-page .admin-markdown-preview blockquote {
+  margin: 0 0 0.85em;
+  padding-left: 0.95rem;
+  border-left: 3px solid #9eb4de;
+  color: #425266;
+}
+
+.admin-page .admin-markdown-preview pre {
   overflow: auto;
   border-radius: 12px;
   background: #0f1729;
   color: #f6f8fc;
   padding: 0.9rem 1rem;
+}
+
+.admin-page .admin-markdown-preview code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.admin-page .admin-markdown-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.admin-page .admin-markdown-preview th,
+.admin-page .admin-markdown-preview td {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d7e0eb;
+  text-align: left;
 }
 
 .admin-page button {

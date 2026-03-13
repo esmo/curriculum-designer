@@ -304,7 +304,7 @@ Notes:
 - `title`, `track`, and `description` are required by the server.
 - `slug` is optional and auto-generated from `title` if empty.
 - `content` is written as Markdown body, all other fields go to frontmatter
-- `input: markdown` renders a Markdown editor with toolbar and preview in the admin UI
+- `input: markdown` renders a TinyMDE-based Markdown editor with toolbar; preview is rendered by the admin server through the same `markdown-it` pipeline used for the site build
 - `textarea` and `markdown` fields preserve line breaks when stored in frontmatter
 - bundled default schemas include `lesson`, `task`, `topic`, and `resource`
 - use spaces (no tabs) and 2-space indentation in schema YAML files.

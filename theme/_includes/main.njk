@@ -1,12 +1,15 @@
 <!DOCTYPE html>
+{% set isAdminPage = page.url == "/admin/" %}
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>{{ site.title }} - {{ page.url }}</title>
     <link rel="stylesheet" href="/assets/css/main.css" />
+    {% if isAdminPage %}
+      <link rel="stylesheet" href="/admin/assets/vendor/tiny-mde/tiny-mde.min.css" />
+    {% endif %}
   </head>
   <body>
-    {% set isAdminPage = page.url == "/admin/" %}
     {% set isEditableEntry = type == "Lesson" or type == "Task" or type == "Topic" or type == "Resource" %}
     {% include "navigation.njk" %}
     {% if not isAdminPage %}
@@ -23,6 +26,9 @@
           >
         {% endif %}
       </div>
+    {% endif %}
+    {% if isAdminPage %}
+      <script src="/admin/assets/vendor/tiny-mde/tiny-mde.min.js"></script>
     {% endif %}
     {{ content | safe }}
     {% if not isAdminPage %}

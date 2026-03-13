@@ -9,6 +9,7 @@ const { registerRoutes } = require("./routes");
 const { createBuildService } = require("./services/build-service");
 const { createEntryService } = require("./services/entry-service");
 const { createSchemaService } = require("./services/schema-service");
+const { createMarkdownLib } = require("../../lib/create-markdown-lib");
 
 function createAdminApp(config) {
   const app = Fastify({
@@ -59,11 +60,14 @@ function createAdminApp(config) {
     enqueueBuild: buildService.enqueueBuild,
   });
 
+  const markdownLib = createMarkdownLib();
+
   registerRoutes(app, {
     adminDir: config.adminDir,
     auth,
     schemaService,
     entryService,
+    renderMarkdown: (value) => markdownLib.render(String(value || "")),
   });
 
   async function start() {
