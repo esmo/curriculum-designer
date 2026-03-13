@@ -326,7 +326,7 @@
       wrapper.appendChild(header);
 
       const control = fieldInputElement(field, elementId);
-      control.dataset.fieldName = field.name;
+      control.dataset.formFieldName = field.name;
       control.required = field.required === true && field.input !== "markdown";
       if (field.required === true && field.input === "markdown") {
         control.dataset.required = "true";
@@ -346,7 +346,7 @@
         const previewButton = document.createElement("button");
         previewButton.type = "button";
         previewButton.className = "secondary admin-markdown-preview-toggle";
-        previewButton.dataset.fieldName = field.name;
+        previewButton.dataset.previewToggleFieldName = field.name;
         previewButton.textContent = "Preview";
         toolbarRow.appendChild(previewButton);
 
@@ -359,7 +359,7 @@
 
         const previewPanel = document.createElement("div");
         previewPanel.className = "admin-markdown-preview";
-        previewPanel.dataset.fieldName = field.name;
+        previewPanel.dataset.previewPanelFieldName = field.name;
         previewPanel.hidden = true;
 
         shell.appendChild(toolbarRow);
@@ -381,7 +381,7 @@
     }
 
     function getFieldElement(fieldName) {
-      return fieldsRoot.querySelector(`[data-field-name="${fieldName}"]`);
+      return fieldsRoot.querySelector(`[data-form-field-name="${fieldName}"]`);
     }
 
     function getMarkdownEditorEntry(fieldName) {
