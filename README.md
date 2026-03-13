@@ -28,6 +28,8 @@ If the configured env file already exists, its current values are offered as
 prompt defaults and can be accepted with Enter.
 If `BLENDER_CURRICULUM_*` variables are already set in the shell, they take
 priority as prompt defaults.
+The install script creates the external content directory structure but does not
+copy repository example content into it.
 
 After installation:
 
@@ -95,7 +97,6 @@ Optional deployment variables:
 Install-script specific variables:
 
 - `BLENDER_CURRICULUM_ENV_FILE`
-- `BLENDER_CURRICULUM_MIGRATE_CONTENT`
 - `BLENDER_CURRICULUM_OVERWRITE_ENV`
 - `BLENDER_CURRICULUM_INSTALL_DEPS`
 - `BLENDER_CURRICULUM_SETUP_DIRENV`
@@ -208,7 +209,9 @@ WantedBy=multi-user.target
 
 Admin save behavior:
 
-- writes Markdown into `content/` or `BLENDER_CURRICULUM_CONTENT_ROOT`
+- writes Markdown into the configured content root
+- production content should live in `BLENDER_CURRICULUM_CONTENT_ROOT`, outside the repository
+- the repository `content/` directory is retained only as example/development content
 - runs `npm run build`
 - if `BLENDER_CURRICULUM_WEB_ROOT` is set, syncs `build/` to web root via `rsync`
 - writes `created_by`/`created_at` on create and keeps them on update
@@ -302,6 +305,8 @@ Notes:
 - `slug` is optional and auto-generated from `title` if empty.
 - `content` is written as Markdown body, all other fields go to frontmatter
 - `input: markdown` renders a Markdown editor with toolbar and preview in the admin UI
+- `textarea` and `markdown` fields preserve line breaks when stored in frontmatter
+- bundled default schemas include `lesson`, `task`, `topic`, and `resource`
 - use spaces (no tabs) and 2-space indentation in schema YAML files.
 
 ## Nginx Reverse Proxy
@@ -342,10 +347,12 @@ This keeps deployment robust:
 ## Source Layout
 
 - `theme/`: templates, navigation data, styles, structural pages.
-- `content/`: editorial content (`lessons/`, `tasks/`, `topics/`).
+- `content/`: example editorial content for local development (`lessons/`, `tasks/`, `topics/`, `resources/`).
 - `admin/`: static admin frontend and schema definitions.
 - `server/`: admin API server.
 - `ops/`: build/deploy/install scripts.
+
+Production content should live outside the repository in `BLENDER_CURRICULUM_CONTENT_ROOT`.
 
 ## Development
 

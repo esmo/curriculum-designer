@@ -190,7 +190,7 @@ else
 fi
 
 npm ci
-mkdir -p "$CONTENT_ROOT/lessons" "$CONTENT_ROOT/tasks" "$CONTENT_ROOT/topics"
+mkdir -p "$CONTENT_ROOT/lessons" "$CONTENT_ROOT/tasks" "$CONTENT_ROOT/topics" "$CONTENT_ROOT/resources"
 BLENDER_CURRICULUM_THEME_ROOT="$THEME_ROOT" \
 BLENDER_CURRICULUM_CONTENT_ROOT="$CONTENT_ROOT" \
 npm run build

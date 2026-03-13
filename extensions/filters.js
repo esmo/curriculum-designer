@@ -1,4 +1,4 @@
-function addFilters(eleventyConfig) {
+function addFilters(eleventyConfig, markdownLib) {
 
   eleventyConfig.addFilter(
     "filterAttribute",
@@ -23,6 +23,14 @@ function addFilters(eleventyConfig) {
 
     // Convert the set to an array and return it
     return [...values];
+  });
+
+  eleventyConfig.addFilter("markdown", function (value) {
+    if (!markdownLib) {
+      return String(value || "");
+    }
+
+    return markdownLib.render(String(value || ""));
   });
 
 };

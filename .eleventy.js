@@ -32,7 +32,7 @@ module.exports = function (eleventyConfig) {
     eleventyConfig.addPassthroughCopy({ [assetsSource]: "assets" });
   }
 
-  addFilters(eleventyConfig);
+  addFilters(eleventyConfig, markdownLib);
   // addShortcodes(eleventyConfig);
 
   return cfg;

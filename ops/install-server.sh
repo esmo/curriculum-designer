@@ -16,7 +16,6 @@ ADMIN_PORT="${BLENDER_CURRICULUM_ADMIN_PORT:-}"
 ADMIN_USER_FILE="${BLENDER_CURRICULUM_ADMIN_USER_FILE:-}"
 SESSION_SECRET="${BLENDER_CURRICULUM_SESSION_SECRET:-}"
 SESSION_COOKIE_SECURE="${BLENDER_CURRICULUM_SESSION_COOKIE_SECURE:-auto}"
-MIGRATE_CONTENT="${BLENDER_CURRICULUM_MIGRATE_CONTENT:-true}"
 OVERWRITE_ENV="${BLENDER_CURRICULUM_OVERWRITE_ENV:-false}"
 INSTALL_DEPS="${BLENDER_CURRICULUM_INSTALL_DEPS:-false}"
 SETUP_DIRENV="${BLENDER_CURRICULUM_SETUP_DIRENV:-false}"
@@ -420,23 +419,6 @@ EOF
   log "  bash: eval \"\$(direnv hook bash)\""
 }
 
-migrate_content() {
-  if [ "$MIGRATE_CONTENT" != "true" ]; then
-    log "Skipping content migration (BLENDER_CURRICULUM_MIGRATE_CONTENT=false)."
-    return
-  fi
-
-  if [ ! -d "$REPO_DIR/content" ]; then
-    log "No repo content directory found, skipping migration."
-    return
-  fi
-
-  log "Migrating content from $REPO_DIR/content to $CONTENT_ROOT (no overwrite)."
-  rsync -a --ignore-existing "$REPO_DIR/content/lessons/" "$CONTENT_ROOT/lessons/"
-  rsync -a --ignore-existing "$REPO_DIR/content/tasks/" "$CONTENT_ROOT/tasks/"
-  rsync -a --ignore-existing "$REPO_DIR/content/topics/" "$CONTENT_ROOT/topics/"
-}
-
 main() {
   collect_configuration
   validate_admin_config
@@ -451,9 +433,8 @@ main() {
 
   log "Creating required directories."
   mkdir -p "$WEB_ROOT"
-  mkdir -p "$CONTENT_ROOT/lessons" "$CONTENT_ROOT/tasks" "$CONTENT_ROOT/topics"
-
-  migrate_content
+  mkdir -p "$CONTENT_ROOT/lessons" "$CONTENT_ROOT/tasks" "$CONTENT_ROOT/topics" "$CONTENT_ROOT/resources"
+  log "Repo content is not migrated. Production content lives only in $CONTENT_ROOT."
 
   chmod +x "$REPO_DIR/ops/deploy-pull.sh"
   write_env_file

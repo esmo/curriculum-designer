@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="/assets/css/main.css" />
   </head>
   <body>
-    {% set isEditableEntry = type == "Lesson" or type == "Task" or type == "Topic" %}
+    {% set isEditableEntry = type == "Lesson" or type == "Task" or type == "Topic" or type == "Resource" %}
     {% include "navigation.njk" %}
     <div class="admin-links">
       <a class="admin-link" data-admin-login-link href="/admin/">Login</a>

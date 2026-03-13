@@ -1,3 +1,3 @@
 module.exports = {
-  layout: () => "main.njk",
+  layout: (data) => (data.type === "Resource" ? "resource.njk" : "main.njk"),
 };

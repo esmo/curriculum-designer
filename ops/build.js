@@ -14,7 +14,7 @@ const CONTENT_ROOT = path.resolve(
 );
 const OUTPUT_DIR = path.join(ROOT_DIR, "build");
 const ADMIN_RUNTIME_DIR = path.join(ROOT_DIR, "admin");
-const CONTENT_DIRS = ["lessons", "tasks", "topics"];
+const CONTENT_DIRS = ["lessons", "tasks", "topics", "resources"];
 
 function ensureDirectory(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });

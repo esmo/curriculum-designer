@@ -6,9 +6,18 @@ function sanitizeSingleLine(value) {
     .trim();
 }
 
+function sanitizeMultiLine(value) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+}
+
 function yamlString(value) {
   const text = String(value ?? "");
-  return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return `"${text
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, "\\n")}"`;
 }
 
 function normalizeSlug(rawSlug) {
@@ -363,6 +372,14 @@ function parseFieldValue(field, rawValue) {
     return content;
   }
 
+  if (field.input === "textarea" || field.input === "markdown") {
+    const value = sanitizeMultiLine(rawValue);
+    if (field.required && !value) {
+      throw new Error(`Field "${field.name}" is required.`);
+    }
+    return value;
+  }
+
   const value = sanitizeSingleLine(rawValue);
   if (field.required && !value) {
     throw new Error(`Field "${field.name}" is required.`);
@@ -390,7 +407,7 @@ function toMarkdownDocument(input) {
 
     if (field.input === "tags") {
       if (Array.isArray(value) && value.length > 0) {
-        lines.push(`tags: [${value.map((tag) => yamlString(tag)).join(", ")}]`);
+        lines.push(`${field.name}: [${value.map((tag) => yamlString(tag)).join(", ")}]`);
       }
       continue;
     }
