@@ -11,7 +11,7 @@ fields:
     placeholder: Modeling
     width: half
   - name: title
-    label: Titel
+    label: Title
     input: text
     required: true
     placeholder: Retopology
@@ -21,7 +21,7 @@ fields:
     input: text
     required: false
     placeholder: retopology
-    hint: Leer lassen, um ihn aus dem Titel zu erzeugen.
+    hint: Leave empty to generate it from the title.
     width: half
   - name: stage
     label: Stage
@@ -42,16 +42,16 @@ fields:
     input: tags
     required: false
     placeholder: Workflow, Fundamentals
-    hint: Kommagetrennte Liste.
+    hint: Comma-separated list.
     width: third
   - name: description
-    label: Beschreibung
+    label: Description
     input: textarea
     required: true
     rows: 4
     width: full
   - name: content
-    label: Inhalt (Markdown)
+    label: Content (Markdown)
     input: markdown
     required: false
     rows: 16

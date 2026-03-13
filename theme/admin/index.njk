@@ -6,33 +6,33 @@
       <p class="admin-eyebrow">Admin Workspace</p>
       <h1 class="admin-page-title">Curriculum Admin</h1>
       <p class="admin-page-intro">
-        Erstellt oder aktualisiert Eintraege in <code>content/</code> (oder
-        <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) und startet danach einen Eleventy-Build.
+        Creates or updates entries in <code>content/</code> (or
+        <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) and then starts an Eleventy build.
       </p>
     </header>
 
     <section id="login-panel" class="admin-auth admin-panel" hidden>
       <div class="admin-panel-header">
-        <h2>Anmeldung</h2>
+        <h2>Sign In</h2>
         <p class="hint admin-panel-intro">
-          Melde dich an, um Eintraege anzulegen, zu bearbeiten oder zu loeschen.
+          Sign in to create, edit, or delete entries.
         </p>
       </div>
       <form id="login-form" class="admin-auth-form" autocomplete="on">
         <div class="admin-grid-2 admin-auth-fields">
           <label>
-            Benutzername
+            Username
             <input id="login-username" name="username" type="text" autocomplete="username" required />
           </label>
 
           <label>
-            Passwort
+            Password
             <input id="login-password" name="password" type="password" autocomplete="current-password" required />
           </label>
         </div>
 
         <div class="actions">
-          <button id="login-btn" type="submit">Anmelden</button>
+          <button id="login-btn" type="submit">Sign In</button>
           <div id="login-status" class="status"></div>
         </div>
       </form>
@@ -42,20 +42,20 @@
       <div class="admin-session-row">
         <div class="admin-session-copy">
           <span class="admin-session-label">Session</span>
-          <span>Eingeloggt als <strong id="session-user-name"></strong></span>
+          <span>Signed in as <strong id="session-user-name"></strong></span>
         </div>
-        <button id="logout-btn" type="button" class="secondary">Abmelden</button>
+        <button id="logout-btn" type="button" class="secondary">Sign Out</button>
       </div>
 
       <form id="entry-form" class="admin-form">
         <div class="admin-grid-2 admin-form-head">
           <label>
-            Typ
+            Type
             <select id="entry-type" name="entryType" required></select>
           </label>
 
           <p class="hint admin-schema-hint">
-            Felder werden aus YAML-Schemata geladen und direkt in Markdown-Dateien geschrieben.
+            Fields are loaded from YAML schemas and written directly into Markdown files.
           </p>
         </div>
 
@@ -63,12 +63,12 @@
 
         <label class="checkbox admin-check-card">
           <input type="checkbox" name="overwrite" />
-          <span>Bestehende Datei mit gleichem Slug ueberschreiben</span>
+          <span>Overwrite an existing file with the same slug</span>
         </label>
 
         <div class="actions admin-form-actions">
-          <button id="submit-btn" type="submit">Speichern</button>
-          <button id="delete-btn" class="danger" type="button" hidden>Loeschen</button>
+          <button id="submit-btn" type="submit">Save</button>
+          <button id="delete-btn" class="danger" type="button" hidden>Delete</button>
           <div id="status" class="status"></div>
         </div>
       </form>
@@ -283,38 +283,38 @@
           name: "bold",
           action: EasyMDE.toggleBold,
           text: "B",
-          title: "Fett",
+          title: "Bold",
         },
         {
           name: "italic",
           action: EasyMDE.toggleItalic,
           text: "I",
-          title: "Kursiv",
+          title: "Italic",
         },
         {
           name: "heading",
           action: EasyMDE.toggleHeadingSmaller,
           text: "H",
-          title: "Ueberschrift",
+          title: "Heading",
         },
         "|",
         {
           name: "quote",
           action: EasyMDE.toggleBlockquote,
           text: "\"",
-          title: "Zitat",
+          title: "Quote",
         },
         {
           name: "unordered-list",
           action: EasyMDE.toggleUnorderedList,
-          text: "Liste",
-          title: "Aufzaehlung",
+          text: "List",
+          title: "Bullet List",
         },
         {
           name: "ordered-list",
           action: EasyMDE.toggleOrderedList,
           text: "1.",
-          title: "Nummerierte Liste",
+          title: "Numbered List",
         },
         {
           name: "link",
@@ -326,33 +326,33 @@
           name: "code",
           action: EasyMDE.toggleCodeBlock,
           text: "{}",
-          title: "Codeblock",
+          title: "Code Block",
         },
         {
           name: "table",
           action: EasyMDE.drawTable,
-          text: "Tabelle",
-          title: "Tabelle",
+          text: "Table",
+          title: "Table",
         },
         "|",
         {
           name: "preview",
           action: EasyMDE.togglePreview,
-          text: "Vorschau",
+          text: "Preview",
           noDisable: true,
-          title: "Vorschau",
+          title: "Preview",
         },
         {
           name: "side-by-side",
           action: EasyMDE.toggleSideBySide,
           text: "Split",
-          title: "Editor und Vorschau",
+          title: "Editor and Preview",
         },
         {
           name: "fullscreen",
           action: EasyMDE.toggleFullScreen,
-          text: "Vollbild",
-          title: "Vollbild",
+          text: "Full",
+          title: "Full Screen",
         },
       ];
     }
@@ -381,7 +381,7 @@
       if (field.required) {
         const badge = document.createElement("span");
         badge.className = "field-badge";
-        badge.textContent = "Pflicht";
+        badge.textContent = "Required";
         header.appendChild(badge);
       }
 
@@ -420,7 +420,7 @@
         }
 
         if (typeof window.EasyMDE !== "function") {
-          throw new Error("Markdown-Editor konnte nicht geladen werden.");
+          throw new Error("Markdown editor could not be loaded.");
         }
 
         const textarea = getFieldElement(field.name);
@@ -520,21 +520,21 @@
 
     function buildDeployMessage(data, mode) {
       const sync = data.build?.sync;
-      let buildText = "Build erfolgreich.";
+      let buildText = "Build completed successfully.";
       let statusType = "success";
 
       if (!data.build?.ok) {
-        buildText = `${mode} gespeichert, Build fehlgeschlagen.`;
+        buildText = `${mode} was saved, but the build failed.`;
         statusType = "error";
       } else if (sync && !sync.ok && !sync.skipped) {
         buildText =
-          "Build erfolgreich, Sync nach BLENDER_CURRICULUM_WEB_ROOT fehlgeschlagen.";
+          "Build completed successfully, but syncing to BLENDER_CURRICULUM_WEB_ROOT failed.";
         statusType = "error";
       } else if (sync && sync.ok && !sync.skipped) {
-        buildText = "Build und Sync erfolgreich.";
+        buildText = "Build and sync completed successfully.";
       } else if (sync && sync.skipped) {
         buildText =
-          "Build erfolgreich (kein BLENDER_CURRICULUM_WEB_ROOT-Sync konfiguriert).";
+          "Build completed successfully (no BLENDER_CURRICULUM_WEB_ROOT sync configured).";
       }
 
       return {
@@ -545,7 +545,7 @@
 
     function throwIfUnauthorized(response) {
       if (response.status === 401) {
-        throw new Error("Nicht eingeloggt. Bitte erneut anmelden.");
+        throw new Error("Not signed in. Please sign in again.");
       }
     }
 
@@ -556,11 +556,11 @@
       throwIfUnauthorized(response);
 
       if (!response.ok || !data?.ok) {
-        throw new Error(data?.error || "Eintrag konnte nicht geladen werden.");
+        throw new Error(data?.error || "Entry could not be loaded.");
       }
 
       if (!schemaMap.has(data.entryType)) {
-        throw new Error(`Schema "${data.entryType}" ist nicht verfuegbar.`);
+        throw new Error(`Schema "${data.entryType}" is not available.`);
       }
 
       if (entryTypeSelect.value !== data.entryType) {
@@ -576,7 +576,7 @@
         slugInput.readOnly = true;
       }
 
-      submitBtn.textContent = "Speichern";
+      submitBtn.textContent = "Save";
       if (overwriteCheckbox) {
         overwriteCheckbox.checked = true;
       }
@@ -586,7 +586,7 @@
 
       entryTypeSelect.disabled = true;
       deleteBtn.hidden = false;
-      setStatus(`Bearbeite: ${data.file}`, null);
+      setStatus(`Editing: ${data.file}`, null);
     }
 
     async function loadSchemas() {
@@ -594,7 +594,7 @@
       throwIfUnauthorized(response);
 
       if (!response.ok || !data?.ok) {
-        throw new Error(data?.error || "Schemata konnten nicht geladen werden.");
+        throw new Error(data?.error || "Schemas could not be loaded.");
       }
 
       entryTypeSelect.innerHTML = "";
@@ -610,7 +610,7 @@
 
       const initialType = data.defaultEntryType || entryTypeSelect.value;
       if (!schemaMap.has(initialType)) {
-        throw new Error("Kein gueltiges Standard-Schema gefunden.");
+        throw new Error("No valid default schema found.");
       }
 
       entryTypeSelect.value = initialType;
@@ -619,7 +619,7 @@
 
     function payloadFromForm() {
       if (!currentSchema) {
-        throw new Error("Kein aktives Schema geladen.");
+        throw new Error("No active schema loaded.");
       }
 
       const fields = {};
@@ -673,7 +673,7 @@
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      setStatus("Speichere...", null);
+      setStatus("Saving...", null);
       submitBtn.disabled = true;
 
       try {
@@ -688,19 +688,19 @@
         throwIfUnauthorized(response);
 
         if (!response.ok || !data?.ok) {
-          throw new Error(data?.error || "Unbekannter Fehler");
+          throw new Error(data?.error || "Unknown error");
         }
 
-        const deployMessage = buildDeployMessage(data, "Eintrag");
+        const deployMessage = buildDeployMessage(data, "Entry");
         const shouldRedirect = data.deployOk === true;
 
         if (shouldRedirect) {
           setStatus(
-            `Gespeichert: ${data.file}. ${deployMessage.text} Weiterleitung...`,
+            `Saved: ${data.file}. ${deployMessage.text} Redirecting...`,
             deployMessage.statusType
           );
         } else {
-          setStatus(`Gespeichert: ${data.file}. ${deployMessage.text}`, deployMessage.statusType);
+          setStatus(`Saved: ${data.file}. ${deployMessage.text}`, deployMessage.statusType);
         }
 
         if (shouldRedirect && data.viewUrl) {
@@ -721,13 +721,13 @@
       }
 
       const confirmed = window.confirm(
-        `Eintrag "${editTarget.slug}" wirklich loeschen?`
+        `Do you really want to delete "${editTarget.slug}"?`
       );
       if (!confirmed) {
         return;
       }
 
-      setStatus("Loesche...", null);
+      setStatus("Deleting...", null);
       submitBtn.disabled = true;
       deleteBtn.disabled = true;
 
@@ -741,19 +741,19 @@
         throwIfUnauthorized(response);
 
         if (!response.ok || !data?.ok) {
-          throw new Error(data?.error || "Loeschen fehlgeschlagen.");
+          throw new Error(data?.error || "Delete failed.");
         }
 
-        const deployMessage = buildDeployMessage(data, "Eintrag");
+        const deployMessage = buildDeployMessage(data, "Entry");
         const shouldRedirect = data.deployOk === true;
 
         if (shouldRedirect) {
           setStatus(
-            `Geloescht: ${data.file}. ${deployMessage.text} Weiterleitung...`,
+            `Deleted: ${data.file}. ${deployMessage.text} Redirecting...`,
             deployMessage.statusType
           );
         } else {
-          setStatus(`Geloescht: ${data.file}. ${deployMessage.text}`, deployMessage.statusType);
+          setStatus(`Deleted: ${data.file}. ${deployMessage.text}`, deployMessage.statusType);
         }
 
         if (shouldRedirect && data.listUrl) {
@@ -771,7 +771,7 @@
 
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      setLoginStatus("Anmeldung laeuft...", null);
+      setLoginStatus("Signing in...", null);
       loginBtn.disabled = true;
 
       try {
@@ -791,10 +791,10 @@
         });
 
         if (!response.ok || !data?.ok) {
-          throw new Error(data?.error || "Anmeldung fehlgeschlagen.");
+          throw new Error(data?.error || "Sign-in failed.");
         }
 
-        setLoginStatus("Anmeldung erfolgreich.", "success");
+        setLoginStatus("Signed in successfully.", "success");
         await bootstrap();
       } catch (error) {
         setLoginStatus(error.message, "error");
@@ -831,7 +831,7 @@
       }
 
       if (!schemaMap.has(editTarget.entryType)) {
-        throw new Error(`Unbekannter entryType "${editTarget.entryType}" in der URL.`);
+        throw new Error(`Unknown entryType "${editTarget.entryType}" in the URL.`);
       }
 
       entryTypeSelect.value = editTarget.entryType;
@@ -857,7 +857,7 @@
 
     bootstrap().catch((error) => {
       setPanelState(false, "");
-      setLoginStatus(error.message || "Session konnte nicht geladen werden.", "error");
+      setLoginStatus(error.message || "Session could not be loaded.", "error");
     });
   })();
 </script>

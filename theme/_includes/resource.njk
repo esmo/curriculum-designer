@@ -20,31 +20,31 @@ layout: main.njk
     <dl class="resource-meta">
       {% if author_source %}
         <div>
-          <dt>Autor:in / Quelle</dt>
+          <dt>Author / Source</dt>
           <dd>{{ author_source }}</dd>
         </div>
       {% endif %}
       {% if source_url %}
         <div>
-          <dt>Originalquelle</dt>
+          <dt>Original Source</dt>
           <dd><a href="{{ source_url }}">{{ source_url }}</a></dd>
         </div>
       {% endif %}
       {% if version %}
         <div>
-          <dt>Version / Stand</dt>
+          <dt>Version / Updated</dt>
           <dd>{{ version }}</dd>
         </div>
       {% endif %}
       {% if license %}
         <div>
-          <dt>Lizenz / Nutzungsrechte</dt>
+          <dt>License / Usage Rights</dt>
           <dd>{{ license }}</dd>
         </div>
       {% endif %}
       {% if prerequisite_reference %}
         <div>
-          <dt>Vorgänger-Ressource</dt>
+          <dt>Prerequisite Resource</dt>
           <dd>{{ prerequisite_reference }}</dd>
         </div>
       {% endif %}
@@ -59,7 +59,7 @@ layout: main.njk
 
   {% if glossary_terms and glossary_terms.length %}
     <section class="resource-section">
-      <h2>Kernbegriffe</h2>
+      <h2>Key Terms</h2>
       <ul class="resource-terms">
         {% for term in glossary_terms %}
           <li>{{ term }}</li>
@@ -70,28 +70,28 @@ layout: main.njk
 
   {% if core_concepts %}
     <section class="resource-section">
-      <h2>Kernkonzepte / Inhalte</h2>
+      <h2>Core Concepts / Content</h2>
       {{ core_concepts | markdown | safe }}
     </section>
   {% endif %}
 
   {% if learning_goals %}
     <section class="resource-section">
-      <h2>Lernziele</h2>
+      <h2>Learning Goals</h2>
       {{ learning_goals | markdown | safe }}
     </section>
   {% endif %}
 
   {% if addons_plugins %}
     <section class="resource-section">
-      <h2>Benötigte Add-ons / Plugins</h2>
+      <h2>Required Add-ons / Plugins</h2>
       {{ addons_plugins | markdown | safe }}
     </section>
   {% endif %}
 
   {% if assets_formats %}
     <section class="resource-section">
-      <h2>Dateiformate / Assets</h2>
+      <h2>File Formats / Assets</h2>
       {{ assets_formats | markdown | safe }}
     </section>
   {% endif %}

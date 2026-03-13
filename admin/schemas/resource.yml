@@ -5,13 +5,13 @@ outputDir: resources
 viewBasePath: /resources
 fields:
   - name: track
-    label: Themenbereich
+    label: Topic Area
     input: text
     required: true
     placeholder: Modeling
     width: half
   - name: title
-    label: Titel der Lern-Ressource
+    label: Learning Resource Title
     input: text
     required: true
     placeholder: Topology for Hard Surface Modeling
@@ -21,7 +21,7 @@ fields:
     input: text
     required: false
     placeholder: topology-hard-surface-modeling
-    hint: Leer lassen, um ihn aus dem Titel zu erzeugen.
+    hint: Leave empty to generate it from the title.
     width: half
   - name: format
     label: Format
@@ -29,79 +29,88 @@ fields:
     required: true
     width: third
     options:
-      - Video
-      - PDF
-      - Artikel
-      - Demo-Datei
-      - Referenz-Setup
-      - Mixed
+      - value: Video
+        label: Video
+      - value: PDF
+        label: PDF
+      - value: Article
+        label: Article
+      - value: Demo File
+        label: Demo File
+      - value: Reference Setup
+        label: Reference Setup
+      - value: Mixed
+        label: Mixed
   - name: level
-    label: Niveau
+    label: Level
     input: select
     required: true
     width: third
     options:
-      - Einsteiger
-      - Mittelstufe
-      - Fortgeschritten
+      - value: Beginner
+        label: Beginner
+      - value: Intermediate
+        label: Intermediate
+      - value: Advanced
+        label: Advanced
   - name: source_url
-    label: Originalquelle (URL)
+    label: Original Source (URL)
     input: text
     required: false
     placeholder: https://example.com/resource
     width: full
   - name: description
-    label: Kurzbeschreibung
+    label: Short Description
     input: textarea
     required: true
     rows: 4
-    hint: 2-4 Sätze.
+    hint: 2-4 sentences.
     width: full
   - name: author_source
-    label: Autor:in / Quelle
+    label: Author / Source
     input: text
     required: false
     placeholder: CG Cookie
     width: half
   - name: version
-    label: Version / Stand
+    label: Version / Updated
     input: text
     required: false
-    placeholder: Blender 4.2, Stand 2026-03
+    placeholder: Blender 4.2, Updated 2026-03
     width: half
   - name: license
-    label: Lizenz / Nutzungsrechte
+    label: License / Usage Rights
     input: text
     required: false
     placeholder: CC BY 4.0
     width: full
   - name: core_concepts
-    label: Kernkonzepte / Inhalte
+    label: Core Concepts / Content
     input: markdown
     required: false
     rows: 10
     width: full
   - name: glossary_terms
-    label: Kernbegriffe (Glossarbezug)
+    label: Key Terms (Glossary Reference)
     input: tags
     required: false
     placeholder: Topology, Quad, Edge Flow
-    hint: Kommagetrennte Liste.
+    hint: Comma-separated list.
     width: full
   - name: learning_goals
-    label: Lernziele
+    label: Learning Goals
     input: markdown
     required: false
     rows: 10
-    placeholder: "- kann ..."
-    hint: 3-5 beobachtbare Lernziele.
+    placeholder: "- can ..."
+    hint: 3-5 observable learning goals.
     width: full
   - name: prerequisite_reference
-    label: Vorgänger-Ressource
+    label: Prerequisite Resource
     input: text
     required: false
     placeholder: Intro to Topology (/resources/intro-to-topology/)
-    hint: Freitext für Titel, Link oder interne ID.
+    hint: Free text for title, link, or internal ID.
     width: full
   - name: software_version
     label: Software + Version
@@ -110,16 +119,16 @@ fields:
     placeholder: Blender 4.2
     width: half
   - name: addons_plugins
-    label: Benötigte Add-ons / Plugins
+    label: Required Add-ons / Plugins
     input: markdown
     required: false
     rows: 6
     placeholder: "- Node Wrangler"
     width: half
   - name: assets_formats
-    label: Dateiformate / Assets
+    label: File Formats / Assets
     input: markdown
     required: false
     rows: 6
-    placeholder: "- .blend\n- Referenzbilder"
+    placeholder: "- .blend\n- reference images"
     width: full

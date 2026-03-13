@@ -326,6 +326,10 @@ body:has(.admin-page) {
     linear-gradient(180deg, #f4f7fb 0%, #ecf1f7 100%);
 }
 
+.admin-page [hidden] {
+  display: none !important;
+}
+
 .admin-page {
   max-width: 1240px;
   margin: 0 auto;
