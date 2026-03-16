@@ -59,15 +59,15 @@ fields:
     input: markdown
     required: true
     rows: 6
-    placeholder: "- Resource title (/resources/example-resource/)"
-    hint: Title plus link or internal ID.
+    placeholder: "- [Resource title](/resources/example-resource/)"
+    hint: Use Markdown links or internal IDs.
     width: full
   - name: secondary_resources
     label: Secondary Learning Resource(s)
     input: markdown
     required: false
     rows: 5
-    placeholder: "- Optional supporting resource"
+    placeholder: "- [Optional supporting resource](/resources/example-resource/)"
     width: full
   - name: learning_goal_alignment
     label: Alignment to Resource Learning Goals
