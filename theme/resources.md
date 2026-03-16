@@ -10,11 +10,14 @@ title: Resources for Learning Blender
 {% for trackName in resources | attributeValues("track") | sort() %}
 ### {{ trackName }}
 
+<ul>
 {% for item in resources | filterAttribute("track", trackName) | sort(attribute="data.title") %}
-- [{{ item.data.title }}]({{ item.url }}){% if item.data.format or item.data.level %} ({% if item.data.format %}{{ item.data.format }}{% endif %}{% if item.data.format and item.data.level %}, {% endif %}{% if item.data.level %}{{ item.data.level }}{% endif %}){% endif %}
-  {{ item.data.description }}
-  {% if item.data.source_url %}[Original Source]({{ item.data.source_url }}){% endif %}
+  <li>
+    <strong><a href="{{ item.url }}">{{ item.data.title }}</a></strong>{% if item.data.format or item.data.level %} ({% if item.data.format %}{{ item.data.format }}{% endif %}{% if item.data.format and item.data.level %}, {% endif %}{% if item.data.level %}{{ item.data.level }}{% endif %}){% endif %}<br />
+    {{ item.data.description }}
+  </li>
 {% endfor %}
+</ul>
 
 {% endfor %}
 {% else %}
