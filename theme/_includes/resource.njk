@@ -45,7 +45,7 @@ layout: main.njk
       {% if prerequisite_reference %}
         <div>
           <dt>Prerequisite Resource</dt>
-          <dd>{{ prerequisite_reference }}</dd>
+          <dd>{{ prerequisite_reference | markdownPathLinks | safe }}</dd>
         </div>
       {% endif %}
       {% if software_version %}

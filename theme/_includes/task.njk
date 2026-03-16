@@ -42,14 +42,14 @@ layout: main.njk
   {% if primary_resources %}
     <section class="resource-section">
       <h2>Primary Learning Resource(s)</h2>
-      {{ primary_resources | markdown | safe }}
+      {{ primary_resources | markdownPathLinks | safe }}
     </section>
   {% endif %}
 
   {% if secondary_resources %}
     <section class="resource-section">
       <h2>Secondary Learning Resource(s)</h2>
-      {{ secondary_resources | markdown | safe }}
+      {{ secondary_resources | markdownPathLinks | safe }}
     </section>
   {% endif %}
 

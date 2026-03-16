@@ -1,3 +1,47 @@
+function protectSegments(input, patterns) {
+  const protectedSegments = [];
+  let output = input;
+
+  patterns.forEach((pattern) => {
+    output = output.replace(pattern, (match) => {
+      const token = `__PATHLINK_PLACEHOLDER_${protectedSegments.length}__`;
+      protectedSegments.push(match);
+      return token;
+    });
+  });
+
+  return {
+    output,
+    protectedSegments,
+  };
+}
+
+function restoreSegments(input, protectedSegments) {
+  return input.replace(/__PATHLINK_PLACEHOLDER_(\d+)__/g, (_, index) => {
+    return protectedSegments[Number(index)] || "";
+  });
+}
+
+function linkifyRootRelativePaths(value) {
+  const source = String(value || "");
+  const { output, protectedSegments } = protectSegments(source, [
+    /```[\s\S]*?```/g,
+    /`[^`\n]+`/g,
+    /!\[[^\]]*]\([^)]+\)/g,
+    /\[[^\]]+]\([^)]+\)/g,
+    /<a\b[^>]*>[\s\S]*?<\/a>/gi,
+  ]);
+
+  const pathPattern =
+    /(^|[\s(>])((?:\/(?!\/)[A-Za-z0-9._~%!$&'()*+,;=:@-]+)+(?:\/)?(?:[?#][^\s)<]*)?)(?=$|[\s),.;:!?<])/g;
+
+  const linkified = output.replace(pathPattern, (match, prefix, pathValue) => {
+    return `${prefix}[${pathValue}](${pathValue})`;
+  });
+
+  return restoreSegments(linkified, protectedSegments);
+}
+
 function addFilters(eleventyConfig, markdownLib) {
 
   eleventyConfig.addFilter(
@@ -31,6 +75,14 @@ function addFilters(eleventyConfig, markdownLib) {
     }
 
     return markdownLib.render(String(value || ""));
+  });
+
+  eleventyConfig.addFilter("markdownPathLinks", function (value) {
+    if (!markdownLib) {
+      return String(value || "");
+    }
+
+    return markdownLib.render(linkifyRootRelativePaths(value));
   });
 
 };
