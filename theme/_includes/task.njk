@@ -1,0 +1,146 @@
+---
+layout: main.njk
+---
+<article class="resource-page">
+  <header class="resource-header">
+    {% if track or level or planned_hours %}
+      <p class="resource-kicker">
+        {% if track %}<span>{{ track }}</span>{% endif %}
+        {% if level %}<span>{{ level }}</span>{% endif %}
+        {% if planned_hours %}<span>{{ planned_hours }}h planned</span>{% endif %}
+      </p>
+    {% endif %}
+    <h1>{{ title }}</h1>
+    {% if description %}
+      <p class="resource-lead">{{ description }}</p>
+    {% endif %}
+  </header>
+
+  {% if author_instructor or version or buffer_hours %}
+    <dl class="resource-meta">
+      {% if author_instructor %}
+        <div>
+          <dt>Author / Instructor</dt>
+          <dd>{{ author_instructor }}</dd>
+        </div>
+      {% endif %}
+      {% if version %}
+        <div>
+          <dt>Version / Updated</dt>
+          <dd>{{ version }}</dd>
+        </div>
+      {% endif %}
+      {% if buffer_hours %}
+        <div>
+          <dt>Buffer Hours</dt>
+          <dd>{{ buffer_hours }}</dd>
+        </div>
+      {% endif %}
+    </dl>
+  {% endif %}
+
+  {% if primary_resources %}
+    <section class="resource-section">
+      <h2>Primary Learning Resource(s)</h2>
+      {{ primary_resources | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if secondary_resources %}
+    <section class="resource-section">
+      <h2>Secondary Learning Resource(s)</h2>
+      {{ secondary_resources | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if learning_goal_alignment %}
+    <section class="resource-section">
+      <h2>Alignment to Resource Learning Goals</h2>
+      {{ learning_goal_alignment | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if task_goal %}
+    <section class="resource-section">
+      <h2>Task Goal</h2>
+      {{ task_goal | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if assignment_brief %}
+    <section class="resource-section">
+      <h2>Assignment Brief</h2>
+      {{ assignment_brief | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if milestones %}
+    <section class="resource-section">
+      <h2>Milestones</h2>
+      {{ milestones | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if deliverables %}
+    <section class="resource-section">
+      <h2>Deliverables</h2>
+      {{ deliverables | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if assessment_criteria %}
+    <section class="resource-section">
+      <h2>Assessment Criteria</h2>
+      {{ assessment_criteria | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if pass_requirement %}
+    <section class="resource-section">
+      <h2>Minimum Requirement to Pass</h2>
+      {{ pass_requirement | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if exclusion_criteria %}
+    <section class="resource-section">
+      <h2>Exclusion Criteria / Common Mistakes</h2>
+      {{ exclusion_criteria | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if academic_prerequisites or technical_prerequisites %}
+    <section class="resource-section">
+      <h2>Prerequisites</h2>
+      {% if academic_prerequisites %}
+        <h3>Academic Prerequisites</h3>
+        {{ academic_prerequisites | markdown | safe }}
+      {% endif %}
+      {% if technical_prerequisites %}
+        <h3>Technical Prerequisites</h3>
+        {{ technical_prerequisites | markdown | safe }}
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if teaching_implementation %}
+    <section class="resource-section">
+      <h2>Teaching Implementation</h2>
+      {{ teaching_implementation | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if starter_files_assets %}
+    <section class="resource-section">
+      <h2>Starter Files / Assets</h2>
+      {{ starter_files_assets | markdown | safe }}
+    </section>
+  {% endif %}
+
+  {% if content %}
+    <section class="resource-section">
+      <h2>Additional Notes</h2>
+      {{ content | safe }}
+    </section>
+  {% endif %}
+</article>

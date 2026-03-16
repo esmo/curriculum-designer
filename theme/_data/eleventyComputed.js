@@ -4,6 +4,14 @@ module.exports = {
       return data.layout;
     }
 
-    return data.type === "Resource" ? "resource.njk" : "main.njk";
+    if (data.type === "Resource") {
+      return "resource.njk";
+    }
+
+    if (data.type === "Task") {
+      return "task.njk";
+    }
+
+    return "main.njk";
   },
 };

@@ -4,7 +4,7 @@
     { "name": "Curriculum", "url": "/curriculum/" },
     { "name": "Lessons", "url": "/lessons/" },
     { "name": "Topics", "url": "/topics/" },
-    { "name": "Exercises", "url": "/tasks/" },
+    { "name": "Tasks", "url": "/tasks/" },
     { "name": "Resources", "url": "/resources/" }
   ]
 }

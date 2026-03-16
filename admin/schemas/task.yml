@@ -5,55 +5,171 @@ outputDir: tasks
 viewBasePath: /tasks
 fields:
   - name: track
-    label: Track
+    label: Module / Topic Area
     input: text
     required: true
     placeholder: Modeling
     width: half
   - name: title
-    label: Title
+    label: Task Title
     input: text
     required: true
-    placeholder: An animated robot
+    placeholder: Stylized hard-surface prop study
     width: half
   - name: slug
     label: Slug
     input: text
     required: false
-    placeholder: animated-robot
+    placeholder: stylized-hard-surface-prop-study
     hint: Leave empty to generate it from the title.
     width: half
-  - name: stage
-    label: Stage
-    input: number
+  - name: author_instructor
+    label: Author / Instructor
+    input: text
     required: false
-    min: 0
-    placeholder: "1"
+    placeholder: Jane Doe
+    width: half
+  - name: version
+    label: Version / Updated
+    input: text
+    required: false
+    placeholder: Updated 2026-03
     width: third
   - name: level
     label: Level
-    input: number
-    required: false
-    min: 0
-    placeholder: "1"
+    input: select
+    required: true
     width: third
-  - name: tags
-    label: Tags
-    input: tags
-    required: false
-    placeholder: Exercise, Practice
-    hint: Comma-separated list.
-    width: third
+    options:
+      - value: Beginner
+        label: Beginner
+      - value: Intermediate
+        label: Intermediate
+      - value: Advanced
+        label: Advanced
   - name: description
-    label: Description
+    label: Short Summary
     input: textarea
     required: true
     rows: 4
+    hint: 2-4 sentences that summarize the task.
     width: full
-  - name: content
-    label: Content (Markdown)
+  - name: primary_resources
+    label: Primary Learning Resource(s)
+    input: markdown
+    required: true
+    rows: 6
+    placeholder: "- Resource title (/resources/example-resource/)"
+    hint: Title plus link or internal ID.
+    width: full
+  - name: secondary_resources
+    label: Secondary Learning Resource(s)
     input: markdown
     required: false
-    rows: 16
-    placeholder: "# {{title}}"
+    rows: 5
+    placeholder: "- Optional supporting resource"
+    width: full
+  - name: learning_goal_alignment
+    label: Alignment to Resource Learning Goals
+    input: markdown
+    required: true
+    rows: 6
+    placeholder: "- Which resource learning goals are practiced or assessed?"
+    width: full
+  - name: task_goal
+    label: Task Goal
+    input: markdown
+    required: true
+    rows: 8
+    placeholder: "Describe in 3-5 sentences what learners should be able to demonstrate after completing this task."
+    width: full
+  - name: assignment_brief
+    label: Assignment Brief
+    input: markdown
+    required: true
+    rows: 12
+    placeholder: "Describe the concrete assignment so it can be completed without verbal clarification."
+    width: full
+  - name: planned_hours
+    label: Planned Total Hours
+    input: number
+    required: true
+    min: 1
+    placeholder: "8"
+    width: third
+  - name: buffer_hours
+    label: Buffer Hours
+    input: number
+    required: false
+    min: 0
+    placeholder: "2"
+    width: third
+  - name: milestones
+    label: Milestones
+    input: markdown
+    required: false
+    rows: 6
+    placeholder: "- Milestone 1: ...\n- Milestone 2: ..."
+    width: full
+  - name: deliverables
+    label: Deliverables
+    input: markdown
+    required: true
+    rows: 10
+    placeholder: "- Deliverable: ...\n  - Format: ...\n  - Minimum content: ...\n  - Naming convention: ...\n  - Submission location: ..."
+    hint: One block per deliverable.
+    width: full
+  - name: assessment_criteria
+    label: Assessment Criteria
+    input: markdown
+    required: true
+    rows: 10
+    placeholder: "- Criterion: ...\n  - Weight: 40%\n  - Indicator: ..."
+    hint: Ensure the weights add up to 100%.
+    width: full
+  - name: pass_requirement
+    label: Minimum Requirement to Pass
+    input: markdown
+    required: true
+    rows: 5
+    width: full
+  - name: exclusion_criteria
+    label: Exclusion Criteria / Common Mistakes
+    input: markdown
+    required: false
+    rows: 5
+    width: full
+  - name: academic_prerequisites
+    label: Academic Prerequisites
+    input: markdown
+    required: false
+    rows: 5
+    width: half
+  - name: technical_prerequisites
+    label: Technical Prerequisites
+    input: markdown
+    required: false
+    rows: 5
+    placeholder: "- Blender 4.2\n- Required add-ons\n- Hardware notes"
+    width: half
+  - name: teaching_implementation
+    label: Teaching Implementation
+    input: markdown
+    required: false
+    rows: 8
+    placeholder: "- Input: 20%\n- Guided practice: 20%\n- Individual work: 40%\n- Team work: 0%\n- Feedback: 20%\n- Support format: ...\n- Feedback checkpoints: ..."
+    width: full
+  - name: starter_files_assets
+    label: Starter Files / Assets
+    input: markdown
+    required: false
+    rows: 8
+    placeholder: "- Starter files: ...\n- Provided assets: ...\n- Paths / links: ..."
+    width: full
+  - name: content
+    label: Additional Notes (Markdown)
+    input: markdown
+    required: false
+    rows: 10
+    placeholder: "Optional additional notes or teaching context."
     width: full

@@ -284,15 +284,15 @@ fields:
     input: text
     required: true
   - name: title
-    label: Titel
+    label: Title
     input: text
     required: true
   - name: description
-    label: Beschreibung
+    label: Description
     input: textarea
     required: true
   - name: content
-    label: Inhalt
+    label: Content
     input: markdown
     required: false
 ```
@@ -308,6 +308,17 @@ Notes:
 - `textarea` and `markdown` fields preserve line breaks when stored in frontmatter
 - bundled default schemas include `lesson`, `task`, `topic`, and `resource`
 - use spaces (no tabs) and 2-space indentation in schema YAML files.
+
+The bundled `task` schema is currently structured for assignment authoring. It captures:
+
+- base data such as title, author/instructor, version, module/topic area, and level
+- required resource linkage via primary learning resources and learning-goal alignment
+- task goal and concrete assignment brief
+- time planning via planned total hours, optional buffer hours, and optional milestones
+- deliverables and assessment criteria as structured Markdown blocks
+- pass requirement, optional exclusion criteria, prerequisites, teaching implementation, and starter files/assets
+
+The current form builder does not support repeatable nested groups. Fields such as deliverables and assessment criteria are therefore modeled as guided Markdown fields rather than as repeatable subforms.
 
 ## Nginx Reverse Proxy
 
