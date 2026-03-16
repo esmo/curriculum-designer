@@ -22,6 +22,10 @@ function restoreSegments(input, protectedSegments) {
   });
 }
 
+function normalizeRootRelativePath(candidate) {
+  return String(candidate || "").trim().replace(/[),.;:!?]+$/, "");
+}
+
 function linkifyRootRelativePaths(value) {
   const source = String(value || "");
   const { output, protectedSegments } = protectSegments(source, [
@@ -36,10 +40,64 @@ function linkifyRootRelativePaths(value) {
     /(^|[\s(>])((?:\/(?!\/)[A-Za-z0-9._~%!$&'()*+,;=:@-]+)+(?:\/)?(?:[?#][^\s)<]*)?)(?=$|[\s),.;:!?<])/g;
 
   const linkified = output.replace(pathPattern, (match, prefix, pathValue) => {
-    return `${prefix}[${pathValue}](${pathValue})`;
+    const normalizedPathValue = normalizeRootRelativePath(pathValue);
+    if (!normalizedPathValue) {
+      return match;
+    }
+
+    const suffix = pathValue.slice(normalizedPathValue.length);
+    return `${prefix}[${normalizedPathValue}](${normalizedPathValue})${suffix}`;
   });
 
   return restoreSegments(linkified, protectedSegments);
+}
+
+function extractRootRelativePaths(value) {
+  const source = String(value || "");
+  const paths = [];
+  const seen = new Set();
+
+  function addPath(candidate) {
+    const pathValue = normalizeRootRelativePath(candidate);
+    if (!pathValue || !pathValue.startsWith("/") || pathValue.startsWith("//")) {
+      return;
+    }
+
+    if (seen.has(pathValue)) {
+      return;
+    }
+
+    seen.add(pathValue);
+    paths.push(pathValue);
+  }
+
+  source.replace(/\[[^\]]+]\((\/(?!\/)[^)]+)\)/g, (_, pathValue) => {
+    addPath(pathValue);
+    return _;
+  });
+
+  source.replace(/<a\b[^>]*href=["'](\/(?!\/)[^"']+)["'][^>]*>/gi, (_, pathValue) => {
+    addPath(pathValue);
+    return _;
+  });
+
+  const { output } = protectSegments(source, [
+    /```[\s\S]*?```/g,
+    /`[^`\n]+`/g,
+    /!\[[^\]]*]\([^)]+\)/g,
+    /\[[^\]]+]\([^)]+\)/g,
+    /<a\b[^>]*>[\s\S]*?<\/a>/gi,
+  ]);
+
+  const barePathPattern =
+    /(^|[\s(>])((?:\/(?!\/)[A-Za-z0-9._~%!$&'()*+,;=:@-]+)+(?:\/)?(?:[?#][^\s)<]*)?)(?=$|[\s),.;:!?<])/g;
+
+  output.replace(barePathPattern, (_, __, pathValue) => {
+    addPath(pathValue);
+    return _;
+  });
+
+  return paths;
 }
 
 function addFilters(eleventyConfig, markdownLib) {
@@ -48,8 +106,6 @@ function addFilters(eleventyConfig, markdownLib) {
     "filterAttribute",
     (collection, attributeName, attributeValue) => {
       return collection.filter((item) => {
-        // Access the attribute by name and compare it to the desired value
-        console.log(attributeValue);
         return item.data[attributeName] == attributeValue;
       });
     }
@@ -84,6 +140,39 @@ function addFilters(eleventyConfig, markdownLib) {
 
     return markdownLib.render(linkifyRootRelativePaths(value));
   });
+
+  eleventyConfig.addFilter("firstReferencedPath", function (value) {
+    return extractRootRelativePaths(value)[0] || "";
+  });
+
+  eleventyConfig.addFilter("findByUrl", function (collection, targetUrl) {
+    const normalizedTargetUrl = String(targetUrl || "").trim();
+
+    if (!Array.isArray(collection) || !normalizedTargetUrl) {
+      return null;
+    }
+
+    return (
+      collection.find((item) => String(item?.url || "").trim() === normalizedTargetUrl) ||
+      null
+    );
+  });
+
+  eleventyConfig.addFilter(
+    "filterByReferencedPath",
+    function (collection, fieldName, targetUrl) {
+      const normalizedTargetUrl = String(targetUrl || "").trim();
+
+      if (!Array.isArray(collection) || !fieldName || !normalizedTargetUrl) {
+        return [];
+      }
+
+      return collection.filter((item) => {
+        const fieldValue = item?.data?.[fieldName];
+        return extractRootRelativePaths(fieldValue).includes(normalizedTargetUrl);
+      });
+    }
+  );
 
 };
 

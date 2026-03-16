@@ -1,6 +1,11 @@
 ---
 layout: main.njk
 ---
+{% set resources = collections.all | filterAttribute("type", "Resource") %}
+{% set prerequisitePath = prerequisite_reference | firstReferencedPath %}
+{% set prerequisiteResource = resources | findByUrl(prerequisitePath) %}
+{% set nextResources = resources | filterByReferencedPath("prerequisite_reference", page.url) | sort(attribute="data.title") %}
+
 <article class="resource-page">
   <header class="resource-header">
     {% if track or format or level %}
@@ -65,6 +70,54 @@ layout: main.njk
           <li>{{ term }}</li>
         {% endfor %}
       </ul>
+    </section>
+  {% endif %}
+
+  {% if prerequisite_reference or nextResources.length %}
+    <section class="resource-section resource-path">
+      <h2>Learning Path</h2>
+      <div class="resource-path-flow">
+        <div class="resource-path-node">
+          <p class="resource-path-label">Previous</p>
+          {% if prerequisiteResource %}
+            <a href="{{ prerequisiteResource.url }}">{{ prerequisiteResource.data.title }}</a>
+          {% elif prerequisite_reference %}
+            <div>{{ prerequisite_reference | markdownPathLinks | safe }}</div>
+          {% else %}
+            <span class="resource-path-empty">No prerequisite resource</span>
+          {% endif %}
+        </div>
+
+        <div class="resource-path-arrow" aria-hidden="true">&rarr;</div>
+
+        <div class="resource-path-node is-current">
+          <p class="resource-path-label">Current</p>
+          <strong>{{ title }}</strong>
+        </div>
+
+        {% if nextResources.length %}
+          <div class="resource-path-arrow" aria-hidden="true">&rarr;</div>
+          <div class="resource-path-node">
+            <p class="resource-path-label">Next</p>
+            {% if nextResources.length == 1 %}
+              <a href="{{ nextResources[0].url }}">{{ nextResources[0].data.title }}</a>
+            {% else %}
+              <span>{{ nextResources.length }} possible next resources</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+
+      {% if nextResources.length > 1 %}
+        <div class="resource-path-next-list">
+          <h3>Possible Next Resources</h3>
+          <ul>
+            {% for item in nextResources %}
+              <li><a href="{{ item.url }}">{{ item.data.title }}</a></li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
     </section>
   {% endif %}
 

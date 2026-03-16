@@ -315,6 +315,53 @@ li p {
   background-color: #ececec;
 }
 
+.resource-path-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.resource-path-node {
+  min-width: 180px;
+  flex: 1 1 220px;
+  padding: 14px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #fff;
+}
+
+.resource-path-node.is-current {
+  border-color: #bbb;
+}
+
+.resource-path-label {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #666;
+}
+
+.resource-path-arrow {
+  display: flex;
+  align-items: center;
+  color: #777;
+  font-size: 1.25rem;
+}
+
+.resource-path-empty {
+  color: #666;
+}
+
+.resource-path-next-list {
+  margin-top: 16px;
+}
+
+.resource-path-next-list h3 {
+  margin-bottom: 8px;
+}
+
 /* Admin page */
 body:has(.admin-page) {
   max-width: none;
