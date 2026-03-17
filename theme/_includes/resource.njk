@@ -74,6 +74,15 @@ layout: main.njk
     </section>
   {% endif %}
 
+  {% if content %}
+    <details class="resource-disclosure resource-section">
+      <summary>Resource Content</summary>
+      <div class="resource-disclosure-body">
+        {{ content | safe }}
+      </div>
+    </details>
+  {% endif %}
+
   {% if glossary_terms and glossary_terms.length or core_concepts or learning_goals or addons_plugins or assets_formats %}
     <details class="resource-disclosure resource-section" open>
       <summary>Learning Details</summary>
@@ -120,16 +129,7 @@ layout: main.njk
     </details>
   {% endif %}
 
-  {% if content %}
-    <details class="resource-disclosure resource-section">
-      <summary>Resource Content</summary>
-      <div class="resource-disclosure-body">
-        {{ content | safe }}
-      </div>
-    </details>
-  {% endif %}
-
-  {% if author_source or version or license or prerequisiteReferences.length or software_version %}
+  {% if author_source or version or license or software_version %}
     <details class="resource-disclosure resource-section">
       <summary>Metadata</summary>
       <div class="resource-disclosure-body">
@@ -150,24 +150,6 @@ layout: main.njk
             <div>
               <dt>License / Usage Rights</dt>
               <dd>{{ license }}</dd>
-            </div>
-          {% endif %}
-          {% if prerequisiteReferences.length %}
-            <div>
-              <dt>Prerequisite Resources</dt>
-              <dd>
-                <ul class="resource-reference-list">
-                  {% for reference in prerequisiteReferences %}
-                    <li>
-                      {% if reference.resource %}
-                        <a href="{{ reference.resource.url }}">{{ reference.resource.data.title }}</a>
-                      {% else %}
-                        {{ reference.text | markdownPathLinks | safe }}
-                      {% endif %}
-                    </li>
-                  {% endfor %}
-                </ul>
-              </dd>
             </div>
           {% endif %}
           {% if software_version %}
