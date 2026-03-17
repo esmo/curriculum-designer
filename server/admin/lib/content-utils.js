@@ -336,6 +336,10 @@ function extractFrontmatterMetadata(markdown) {
 }
 
 function frontmatterFieldValueForForm(field, frontmatter, body) {
+  if (field.input === "section") {
+    return "";
+  }
+
   if (field.name === "content") {
     return body;
   }
@@ -367,6 +371,10 @@ function frontmatterFieldValueForForm(field, frontmatter, body) {
 }
 
 function parseFieldValue(field, rawValue) {
+  if (field.input === "section") {
+    return "";
+  }
+
   if (field.input === "number") {
     const parsed = parseOptionalInteger(rawValue, field.name);
     if (field.required && parsed === null) {
@@ -426,7 +434,7 @@ function toMarkdownDocument(input) {
   const lines = ["---"];
 
   for (const field of input.schema.fields) {
-    if (field.name === "slug" || field.name === "content") {
+    if (field.input === "section" || field.name === "slug" || field.name === "content") {
       continue;
     }
 

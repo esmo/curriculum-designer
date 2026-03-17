@@ -4,6 +4,9 @@ typeValue: Resource
 outputDir: resources
 viewBasePath: /resources
 fields:
+  - name: section_overview
+    label: Overview
+    input: section
   - name: track
     label: Topic Area
     input: text
@@ -15,13 +18,6 @@ fields:
     input: text
     required: true
     placeholder: Topology for Hard Surface Modeling
-    width: half
-  - name: slug
-    label: Slug
-    input: text
-    required: false
-    placeholder: topology-hard-surface-modeling
-    hint: Leave empty to generate it from the title.
     width: half
   - name: format
     label: Format
@@ -59,6 +55,15 @@ fields:
     required: false
     placeholder: https://example.com/resource
     width: full
+  - name: prerequisite_reference
+    label: Prerequisite Resources
+    input: textarea
+    list: true
+    required: false
+    placeholder: Intro to Topology (/resources/intro-to-topology/)
+    hint: One reference per line. Free text with path or link is allowed.
+    rows: 4
+    width: full
   - name: description
     label: Short Description
     input: textarea
@@ -66,6 +71,57 @@ fields:
     rows: 4
     hint: 2-4 sentences.
     width: full
+  - name: section_content
+    label: Resource Content
+    input: section
+  - name: content
+    label: Resource Content
+    input: markdown
+    required: false
+    rows: 14
+    placeholder: "Embed or describe the resource content here."
+    width: full
+  - name: section_learning_details
+    label: Learning Details
+    input: section
+  - name: glossary_terms
+    label: Key Terms (Glossary Reference)
+    input: tags
+    required: false
+    placeholder: Topology, Quad, Edge Flow
+    hint: Comma-separated list.
+    width: full
+  - name: core_concepts
+    label: Core Concepts / Content
+    input: markdown
+    required: false
+    rows: 10
+    width: full
+  - name: learning_goals
+    label: Learning Goals
+    input: markdown
+    required: false
+    rows: 10
+    placeholder: "- can ..."
+    hint: 3-5 observable learning goals.
+    width: full
+  - name: addons_plugins
+    label: Required Add-ons / Plugins
+    input: markdown
+    required: false
+    rows: 6
+    placeholder: "- Node Wrangler"
+    width: half
+  - name: assets_formats
+    label: File Formats / Assets
+    input: markdown
+    required: false
+    rows: 6
+    placeholder: "- .blend\n- reference images"
+    width: full
+  - name: section_metadata
+    label: Metadata
+    input: section
   - name: author_source
     label: Author / Source
     input: text
@@ -84,53 +140,16 @@ fields:
     required: false
     placeholder: CC BY 4.0
     width: full
-  - name: core_concepts
-    label: Core Concepts / Content
-    input: markdown
-    required: false
-    rows: 10
-    width: full
-  - name: glossary_terms
-    label: Key Terms (Glossary Reference)
-    input: tags
-    required: false
-    placeholder: Topology, Quad, Edge Flow
-    hint: Comma-separated list.
-    width: full
-  - name: learning_goals
-    label: Learning Goals
-    input: markdown
-    required: false
-    rows: 10
-    placeholder: "- can ..."
-    hint: 3-5 observable learning goals.
-    width: full
-  - name: prerequisite_reference
-    label: Prerequisite Resources
-    input: textarea
-    list: true
-    required: false
-    placeholder: Intro to Topology (/resources/intro-to-topology/)
-    hint: One reference per line. Free text with path or link is allowed.
-    rows: 4
-    width: full
   - name: software_version
     label: Software + Version
     input: text
     required: false
     placeholder: Blender 4.2
     width: half
-  - name: addons_plugins
-    label: Required Add-ons / Plugins
-    input: markdown
+  - name: slug
+    label: Slug
+    input: text
     required: false
-    rows: 6
-    placeholder: "- Node Wrangler"
+    placeholder: topology-hard-surface-modeling
+    hint: Leave empty to generate it from the title.
     width: half
-  - name: assets_formats
-    label: File Formats / Assets
-    input: markdown
-    required: false
-    rows: 6
-    placeholder: "- .blend\n- reference images"
-    width: full

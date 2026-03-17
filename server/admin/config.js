@@ -111,6 +111,7 @@ function loadConfig(env = process.env) {
       "number",
       "tags",
       "select",
+      "section",
     ]),
   };
 }

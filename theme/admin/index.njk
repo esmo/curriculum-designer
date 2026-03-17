@@ -3,10 +3,6 @@
     <header class="admin-card-header">
       <p class="admin-eyebrow">Admin Workspace</p>
       <h1 class="admin-page-title">Curriculum Admin</h1>
-      <p class="admin-page-intro">
-        Creates or updates entries in <code>content/</code> (or
-        <code>$BLENDER_CURRICULUM_CONTENT_ROOT</code>) and then starts an Eleventy build.
-      </p>
     </header>
 
     <section id="login-panel" class="admin-auth admin-panel" hidden>
@@ -46,15 +42,11 @@
       </div>
 
       <form id="entry-form" class="admin-form">
-        <div class="admin-grid-2 admin-form-head">
+        <div class="admin-form-head">
           <label>
             Type
             <select id="entry-type" name="entryType" required></select>
           </label>
-
-          <p class="hint admin-schema-hint">
-            Fields are loaded from YAML schemas and written directly into Markdown files.
-          </p>
         </div>
 
         <div id="fields-root" class="fields-grid"></div>
@@ -296,6 +288,25 @@
     }
 
     function createField(field) {
+      if (field.input === "section") {
+        const section = document.createElement("div");
+        section.className = "field-section";
+
+        const title = document.createElement("h2");
+        title.className = "field-section-title";
+        title.textContent = field.label;
+        section.appendChild(title);
+
+        if (field.hint) {
+          const hint = document.createElement("p");
+          hint.className = "field-section-hint";
+          hint.textContent = field.hint;
+          section.appendChild(hint);
+        }
+
+        return section;
+      }
+
       const elementId = `field-${field.name}`;
       const wrapper = document.createElement("div");
       wrapper.className = [

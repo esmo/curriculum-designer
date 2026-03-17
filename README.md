@@ -300,11 +300,12 @@ fields:
 Notes:
 
 - `fields` drive both form rendering and frontmatter generation.
-- supported `input` values are `text`, `textarea`, `markdown`, `number`, `tags`, `select`
+- supported `input` values are `text`, `textarea`, `markdown`, `number`, `tags`, `select`, `section`
 - `title`, `track`, and `description` are required by the server.
 - `slug` is optional and auto-generated from `title` if empty.
 - `content` is written as Markdown body, all other fields go to frontmatter
 - `input: markdown` renders a TinyMDE-based Markdown editor with toolbar; preview is rendered by the admin server through the same `markdown-it` pipeline used for the site build
+- `input: section` renders a non-persisted section heading inside the admin form and is not written to frontmatter
 - `textarea` and `markdown` fields preserve line breaks when stored in frontmatter
 - `list: true` on a `textarea` or `markdown` field stores one non-empty line per entry as a YAML list in frontmatter
 - bundled default schemas include `lesson`, `task`, `topic`, and `resource`

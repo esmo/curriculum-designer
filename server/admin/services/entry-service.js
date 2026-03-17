@@ -73,6 +73,10 @@ function createEntryService(input) {
     const parsed = parseMarkdownDocument(markdown, filePath);
     const fields = {};
     for (const field of schema.fields) {
+      if (field.input === "section") {
+        continue;
+      }
+
       fields[field.name] = frontmatterFieldValueForForm(
         field,
         parsed.frontmatter,
@@ -110,6 +114,10 @@ function createEntryService(input) {
 
     const values = {};
     for (const field of schema.fields) {
+      if (field.input === "section") {
+        continue;
+      }
+
       values[field.name] = parseFieldValue(field, fieldPayload[field.name]);
     }
 

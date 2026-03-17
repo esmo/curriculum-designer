@@ -504,6 +504,11 @@ body:has(.admin-page) {
   gap: 1rem;
 }
 
+.admin-form-head {
+  display: grid;
+  gap: 1rem;
+}
+
 .admin-grid-2 {
   display: grid;
   gap: 1rem;
@@ -528,6 +533,27 @@ body:has(.admin-page) {
 
 .admin-page .field.width-third {
   grid-column: span 2;
+}
+
+.admin-page .field-section {
+  grid-column: 1 / -1;
+  padding-top: 1rem;
+  border-top: 1px solid #ddd;
+}
+
+.admin-page .fields-grid > .field-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.admin-page .field-section-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.admin-page .field-section-hint {
+  margin: 0.25rem 0 0;
+  color: #555;
 }
 
 .admin-page .field-header {
@@ -784,7 +810,6 @@ body:has(.admin-page) {
   color: #666;
 }
 
-.admin-page .admin-schema-hint,
 .admin-page .admin-check-card {
   padding: 0.75rem;
   border: 1px solid #ddd;

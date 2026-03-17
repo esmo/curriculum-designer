@@ -75,6 +75,19 @@ function createSchemaService(input) {
       width === "half" || width === "third" || width === "full" ? width : "full";
     const list = field.list === true;
 
+    if (inputType === "section") {
+      return {
+        name,
+        label,
+        input: inputType,
+        list: false,
+        required: false,
+        placeholder: "",
+        hint: sanitizeSingleLine(field.hint || ""),
+        width: "full",
+      };
+    }
+
     if (list && inputType !== "textarea" && inputType !== "markdown") {
       throw new Error(
         `Field "${name}" in ${sourcePath} uses list=true but is not a textarea or markdown field.`
