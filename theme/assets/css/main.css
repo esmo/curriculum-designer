@@ -372,8 +372,8 @@ li p {
 }
 
 .resource-path-flow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, auto) auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: row;
   align-items: start;
   gap: 12px 10px;
 }
