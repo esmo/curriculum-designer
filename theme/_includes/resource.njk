@@ -2,8 +2,7 @@
 layout: main.njk
 ---
 {% set resources = collections.all | filterAttribute("type", "Resource") %}
-{% set prerequisitePath = prerequisite_reference | firstReferencedPath %}
-{% set prerequisiteResource = resources | findByUrl(prerequisitePath) %}
+{% set prerequisiteReferences = prerequisite_reference | resolveResourceReferences(resources) %}
 {% set nextResources = resources | filterByReferencedPath("prerequisite_reference", page.url) | sort(attribute="data.title") %}
 
 <article class="resource-page">
@@ -21,7 +20,7 @@ layout: main.njk
     {% endif %}
   </header>
 
-  {% if author_source or source_url or version or license or prerequisite_reference or software_version %}
+  {% if author_source or source_url or version or license or prerequisiteReferences.length or software_version %}
     <dl class="resource-meta">
       {% if author_source %}
         <div>
@@ -47,10 +46,22 @@ layout: main.njk
           <dd>{{ license }}</dd>
         </div>
       {% endif %}
-      {% if prerequisite_reference %}
+      {% if prerequisiteReferences.length %}
         <div>
-          <dt>Prerequisite Resource</dt>
-          <dd>{{ prerequisite_reference | markdownPathLinks | safe }}</dd>
+          <dt>Prerequisite Resources</dt>
+          <dd>
+            <ul class="resource-reference-list">
+              {% for reference in prerequisiteReferences %}
+                <li>
+                  {% if reference.resource %}
+                    <a href="{{ reference.resource.url }}">{{ reference.resource.data.title }}</a>
+                  {% else %}
+                    {{ reference.text | markdownPathLinks | safe }}
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </dd>
         </div>
       {% endif %}
       {% if software_version %}
@@ -73,18 +84,26 @@ layout: main.njk
     </section>
   {% endif %}
 
-  {% if prerequisite_reference or nextResources.length %}
+  {% if prerequisiteReferences.length or nextResources.length %}
     <section class="resource-section resource-path">
       <h2>Learning Path</h2>
       <div class="resource-path-flow">
         <div class="resource-path-node">
           <p class="resource-path-label">Previous</p>
-          {% if prerequisiteResource %}
-            <a href="{{ prerequisiteResource.url }}">{{ prerequisiteResource.data.title }}</a>
-          {% elif prerequisite_reference %}
-            <div>{{ prerequisite_reference | markdownPathLinks | safe }}</div>
+          {% if prerequisiteReferences.length %}
+            <ul class="resource-path-list">
+              {% for reference in prerequisiteReferences %}
+                <li>
+                  {% if reference.resource %}
+                    <a href="{{ reference.resource.url }}">{{ reference.resource.data.title }}</a>
+                  {% else %}
+                    {{ reference.text | markdownPathLinks | safe }}
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
           {% else %}
-            <span class="resource-path-empty">No prerequisite resource</span>
+            <span class="resource-path-empty">No prerequisite resources</span>
           {% endif %}
         </div>
 

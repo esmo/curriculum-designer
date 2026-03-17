@@ -73,11 +73,19 @@ function createSchemaService(input) {
     const width = sanitizeEntryType(field.width || "full");
     const normalizedWidth =
       width === "half" || width === "third" || width === "full" ? width : "full";
+    const list = field.list === true;
+
+    if (list && inputType !== "textarea" && inputType !== "markdown") {
+      throw new Error(
+        `Field "${name}" in ${sourcePath} uses list=true but is not a textarea or markdown field.`
+      );
+    }
 
     return {
       name,
       label,
       input: inputType,
+      list,
       required: field.required === true,
       placeholder: sanitizeSingleLine(field.placeholder || ""),
       hint: sanitizeSingleLine(field.hint || ""),

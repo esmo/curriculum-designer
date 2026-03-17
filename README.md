@@ -306,6 +306,7 @@ Notes:
 - `content` is written as Markdown body, all other fields go to frontmatter
 - `input: markdown` renders a TinyMDE-based Markdown editor with toolbar; preview is rendered by the admin server through the same `markdown-it` pipeline used for the site build
 - `textarea` and `markdown` fields preserve line breaks when stored in frontmatter
+- `list: true` on a `textarea` or `markdown` field stores one non-empty line per entry as a YAML list in frontmatter
 - bundled default schemas include `lesson`, `task`, `topic`, and `resource`
 - use spaces (no tabs) and 2-space indentation in schema YAML files.
 

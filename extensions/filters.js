@@ -26,8 +26,24 @@ function normalizeRootRelativePath(candidate) {
   return String(candidate || "").trim().replace(/[),.;:!?]+$/, "");
 }
 
+function normalizeReferenceEntries(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  const text = String(value || "").replace(/\r\n?/g, "\n").trim();
+  if (!text) {
+    return [];
+  }
+
+  return text
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function linkifyRootRelativePaths(value) {
-  const source = String(value || "");
+  const source = normalizeReferenceEntries(value).join("\n") || String(value || "");
   const { output, protectedSegments } = protectSegments(source, [
     /```[\s\S]*?```/g,
     /`[^`\n]+`/g,
@@ -53,6 +69,23 @@ function linkifyRootRelativePaths(value) {
 }
 
 function extractRootRelativePaths(value) {
+  if (Array.isArray(value)) {
+    const paths = [];
+    const seen = new Set();
+
+    value.forEach((item) => {
+      extractRootRelativePaths(item).forEach((pathValue) => {
+        if (seen.has(pathValue)) {
+          return;
+        }
+        seen.add(pathValue);
+        paths.push(pathValue);
+      });
+    });
+
+    return paths;
+  }
+
   const source = String(value || "");
   const paths = [];
   const seen = new Set();
@@ -141,23 +174,6 @@ function addFilters(eleventyConfig, markdownLib) {
     return markdownLib.render(linkifyRootRelativePaths(value));
   });
 
-  eleventyConfig.addFilter("firstReferencedPath", function (value) {
-    return extractRootRelativePaths(value)[0] || "";
-  });
-
-  eleventyConfig.addFilter("findByUrl", function (collection, targetUrl) {
-    const normalizedTargetUrl = String(targetUrl || "").trim();
-
-    if (!Array.isArray(collection) || !normalizedTargetUrl) {
-      return null;
-    }
-
-    return (
-      collection.find((item) => String(item?.url || "").trim() === normalizedTargetUrl) ||
-      null
-    );
-  });
-
   eleventyConfig.addFilter(
     "filterByReferencedPath",
     function (collection, fieldName, targetUrl) {
@@ -170,6 +186,29 @@ function addFilters(eleventyConfig, markdownLib) {
       return collection.filter((item) => {
         const fieldValue = item?.data?.[fieldName];
         return extractRootRelativePaths(fieldValue).includes(normalizedTargetUrl);
+      });
+    }
+  );
+
+  eleventyConfig.addFilter(
+    "resolveResourceReferences",
+    function (value, collection) {
+      const references = normalizeReferenceEntries(value);
+
+      return references.map((text) => {
+        const pathValue = extractRootRelativePaths(text)[0] || "";
+        const resource =
+          Array.isArray(collection) && pathValue
+            ? collection.find(
+                (item) => String(item?.url || "").trim() === pathValue
+              ) || null
+            : null;
+
+        return {
+          text,
+          path: pathValue,
+          resource,
+        };
       });
     }
   );

@@ -62,6 +62,18 @@ function normalizeTags(rawTags) {
     .filter(Boolean);
 }
 
+function normalizeLineList(rawValue) {
+  if (Array.isArray(rawValue)) {
+    return rawValue.map((item) => sanitizeSingleLine(item)).filter(Boolean);
+  }
+
+  return String(rawValue || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((item) => sanitizeSingleLine(item))
+    .filter(Boolean);
+}
+
 function sanitizeEntryType(value) {
   return String(value || "")
     .toLowerCase()
@@ -340,6 +352,13 @@ function frontmatterFieldValueForForm(field, frontmatter, body) {
     return sanitizeSingleLine(raw);
   }
 
+  if (field.list) {
+    if (Array.isArray(raw)) {
+      return raw.map((item) => sanitizeSingleLine(item)).filter(Boolean).join("\n");
+    }
+    return sanitizeMultiLine(raw);
+  }
+
   if (field.input === "number") {
     return String(raw);
   }
@@ -362,6 +381,14 @@ function parseFieldValue(field, rawValue) {
       throw new Error(`Field "${field.name}" is required.`);
     }
     return tags;
+  }
+
+  if (field.list) {
+    const values = normalizeLineList(rawValue);
+    if (field.required && values.length === 0) {
+      throw new Error(`Field "${field.name}" is required.`);
+    }
+    return values;
   }
 
   if (field.name === "content") {
@@ -417,6 +444,16 @@ function toMarkdownDocument(input) {
       continue;
     }
 
+    if (field.list) {
+      if (Array.isArray(value) && value.length > 0) {
+        lines.push(`${field.name}:`);
+        value.forEach((item) => {
+          lines.push(`  - ${yamlString(item)}`);
+        });
+      }
+      continue;
+    }
+
     lines.push(`${field.name}: ${yamlString(value)}`);
   }
 
@@ -442,5 +479,6 @@ module.exports = {
   parseYamlDocument,
   sanitizeEntryType,
   sanitizeSingleLine,
+  normalizeLineList,
   toMarkdownDocument,
 };

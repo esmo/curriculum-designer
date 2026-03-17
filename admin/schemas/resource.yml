@@ -106,11 +106,13 @@ fields:
     hint: 3-5 observable learning goals.
     width: full
   - name: prerequisite_reference
-    label: Prerequisite Resource
-    input: text
+    label: Prerequisite Resources
+    input: textarea
+    list: true
     required: false
     placeholder: Intro to Topology (/resources/intro-to-topology/)
-    hint: Free text for title, link, or internal ID.
+    hint: One reference per line. Free text with path or link is allowed.
+    rows: 4
     width: full
   - name: software_version
     label: Software + Version

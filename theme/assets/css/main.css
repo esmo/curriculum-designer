@@ -297,6 +297,17 @@ li p {
   margin: 0;
 }
 
+.resource-reference-list,
+.resource-path-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.resource-reference-list p,
+.resource-path-list p {
+  margin: 0;
+}
+
 .resource-section {
   margin-top: 28px;
 }
