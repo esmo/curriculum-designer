@@ -74,60 +74,8 @@ layout: main.njk
     </section>
   {% endif %}
 
-  {% if author_source or version or license or prerequisiteReferences.length or software_version %}
-    <details class="resource-disclosure resource-section" open>
-      <summary>Metadata</summary>
-      <div class="resource-disclosure-body">
-        <dl class="resource-meta">
-          {% if author_source %}
-            <div>
-              <dt>Author / Source</dt>
-              <dd>{{ author_source }}</dd>
-            </div>
-          {% endif %}
-          {% if version %}
-            <div>
-              <dt>Version / Updated</dt>
-              <dd>{{ version }}</dd>
-            </div>
-          {% endif %}
-          {% if license %}
-            <div>
-              <dt>License / Usage Rights</dt>
-              <dd>{{ license }}</dd>
-            </div>
-          {% endif %}
-          {% if prerequisiteReferences.length %}
-            <div>
-              <dt>Prerequisite Resources</dt>
-              <dd>
-                <ul class="resource-reference-list">
-                  {% for reference in prerequisiteReferences %}
-                    <li>
-                      {% if reference.resource %}
-                        <a href="{{ reference.resource.url }}">{{ reference.resource.data.title }}</a>
-                      {% else %}
-                        {{ reference.text | markdownPathLinks | safe }}
-                      {% endif %}
-                    </li>
-                  {% endfor %}
-                </ul>
-              </dd>
-            </div>
-          {% endif %}
-          {% if software_version %}
-            <div>
-              <dt>Software + Version</dt>
-              <dd>{{ software_version }}</dd>
-            </div>
-          {% endif %}
-        </dl>
-      </div>
-    </details>
-  {% endif %}
-
   {% if glossary_terms and glossary_terms.length or core_concepts or learning_goals or addons_plugins or assets_formats %}
-    <details class="resource-disclosure resource-section">
+    <details class="resource-disclosure resource-section" open>
       <summary>Learning Details</summary>
       <div class="resource-disclosure-body">
         {% if glossary_terms and glossary_terms.length %}
@@ -177,6 +125,58 @@ layout: main.njk
       <summary>Resource Content</summary>
       <div class="resource-disclosure-body">
         {{ content | safe }}
+      </div>
+    </details>
+  {% endif %}
+
+  {% if author_source or version or license or prerequisiteReferences.length or software_version %}
+    <details class="resource-disclosure resource-section">
+      <summary>Metadata</summary>
+      <div class="resource-disclosure-body">
+        <dl class="resource-meta">
+          {% if author_source %}
+            <div>
+              <dt>Author / Source</dt>
+              <dd>{{ author_source }}</dd>
+            </div>
+          {% endif %}
+          {% if version %}
+            <div>
+              <dt>Version / Updated</dt>
+              <dd>{{ version }}</dd>
+            </div>
+          {% endif %}
+          {% if license %}
+            <div>
+              <dt>License / Usage Rights</dt>
+              <dd>{{ license }}</dd>
+            </div>
+          {% endif %}
+          {% if prerequisiteReferences.length %}
+            <div>
+              <dt>Prerequisite Resources</dt>
+              <dd>
+                <ul class="resource-reference-list">
+                  {% for reference in prerequisiteReferences %}
+                    <li>
+                      {% if reference.resource %}
+                        <a href="{{ reference.resource.url }}">{{ reference.resource.data.title }}</a>
+                      {% else %}
+                        {{ reference.text | markdownPathLinks | safe }}
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              </dd>
+            </div>
+          {% endif %}
+          {% if software_version %}
+            <div>
+              <dt>Software + Version</dt>
+              <dd>{{ software_version }}</dd>
+            </div>
+          {% endif %}
+        </dl>
       </div>
     </details>
   {% endif %}
