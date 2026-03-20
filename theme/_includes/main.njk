@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-{% set isAdminPage = page.url == "/admin/" %}
+{% set isAdminPage = page.url == admin.url %}
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>{{ site.title }} - {{ page.url }}</title>
     <link rel="stylesheet" href="/assets/css/main.css" />
     {% if isAdminPage %}
-      <link rel="stylesheet" href="/admin/assets/vendor/tiny-mde/tiny-mde.min.css" />
+      <link rel="stylesheet" href="{{ admin.vendorCssUrl }}" />
     {% endif %}
   </head>
   <body>
@@ -14,21 +14,21 @@
     {% include "navigation.njk" %}
     {% if not isAdminPage %}
       <div class="admin-links">
-        <a class="admin-link" data-admin-login-link href="/admin/">Sign In</a>
+        <a class="admin-link" data-admin-login-link href="{{ admin.url }}">Sign In</a>
         <span class="admin-user" data-user-name hidden></span>
-        <a class="admin-link is-hidden" data-admin-create-link href="/admin/">New Entry</a>
+        <a class="admin-link is-hidden" data-admin-create-link href="{{ admin.url }}">New Entry</a>
         {% if isEditableEntry %}
           <a
             class="admin-link admin-link-edit is-hidden"
             data-admin-edit-link
-            href="/admin/?entryType={{ type | lower }}&slug={{ page.fileSlug }}"
+            href="{{ admin.url }}?entryType={{ type | lower }}&slug={{ page.fileSlug }}"
             >Edit</a
           >
         {% endif %}
       </div>
     {% endif %}
     {% if isAdminPage %}
-      <script src="/admin/assets/vendor/tiny-mde/tiny-mde.min.js"></script>
+      <script src="{{ admin.vendorScriptUrl }}"></script>
     {% endif %}
     {{ content | safe }}
     {% if not isAdminPage %}
@@ -74,7 +74,7 @@
           setUserName(initialUserName);
           setLoggedInState(Boolean(initialUserName));
 
-          fetch("/admin/session", { credentials: "same-origin" })
+          fetch("{{ admin.sessionUrl }}", { credentials: "same-origin" })
             .then(async (response) => {
               if (!response.ok) {
                 setLoggedInState(false);

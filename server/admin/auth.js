@@ -5,27 +5,14 @@ const { isArgon2idHash, verifyPassword } = require("./password-hash");
 const { configError, readAdminUserFile } = require("./user-file");
 
 function createAuth(input) {
-  const { requireProxyAuth, adminUserFile } = input;
+  const { adminUserFile } = input;
 
   function requestSessionUser(request) {
     return sanitizeSingleLine(request.session?.user?.name);
   }
 
-  function requestRemoteUser(request) {
-    return sanitizeSingleLine(request.headers["x-remote-user"]);
-  }
-
   function requestAuthUser(request) {
-    const sessionUser = requestSessionUser(request);
-    if (sessionUser) {
-      return sessionUser;
-    }
-
-    if (requireProxyAuth) {
-      return requestRemoteUser(request);
-    }
-
-    return "";
+    return requestSessionUser(request);
   }
 
   function hasLocalUserFile() {
@@ -59,9 +46,7 @@ function createAuth(input) {
 
   async function validateLocalAuthConfig() {
     if (!hasLocalUserFile()) {
-      throw configError(
-        "No admin user file configured. Set BLENDER_CURRICULUM_ADMIN_USER_FILE."
-      );
+      throw configError("No admin user file configured.");
     }
 
     const { users } = await readAdminUserFile(adminUserFile);
@@ -123,7 +108,6 @@ function createAuth(input) {
     clearSession,
     hasLocalUserFile,
     requestAuthUser,
-    requestRemoteUser,
     requestSessionUser,
     requireAdminAuth,
     setSessionUser,

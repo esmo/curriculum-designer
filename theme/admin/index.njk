@@ -1,3 +1,7 @@
+---
+permalink: "{{ admin.outputPath }}"
+---
+
 <main class="admin-page">
   <section class="admin-card">
     <header class="admin-card-header">
@@ -68,6 +72,12 @@
 
 <script>
   (() => {
+    const adminSessionUrl = "{{ admin.sessionUrl }}";
+    const adminPreviewUrl = "{{ admin.previewUrl }}";
+    const adminSchemasUrl = "{{ admin.schemasUrl }}";
+    const adminEntriesUrl = "{{ admin.entriesUrl }}";
+    const adminLoginUrl = "{{ admin.loginUrl }}";
+    const adminLogoutUrl = "{{ admin.logoutUrl }}";
     const loginPanel = document.getElementById("login-panel");
     const editorPanel = document.getElementById("editor-panel");
     const loginForm = document.getElementById("login-form");
@@ -98,6 +108,12 @@
     let currentSchema = null;
     let editorInitialized = false;
     let markdownEditors = new Map();
+
+    function buildEntryApiUrl(entryType, slug) {
+      const encodedEntryType = encodeURIComponent(entryType);
+      const encodedSlug = encodeURIComponent(slug);
+      return `${adminEntriesUrl}/${encodedEntryType}/${encodedSlug}`;
+    }
 
     function slugify(value) {
       return String(value || "")
@@ -202,7 +218,7 @@
     }
 
     async function readSession() {
-      const { response, data } = await fetchJson("/admin/session");
+      const { response, data } = await fetchJson(adminSessionUrl);
       if (!response.ok) {
         return {
           loggedIn: false,
@@ -419,7 +435,7 @@
       entry.previewPanel.innerHTML =
         '<p class="admin-markdown-preview-status">Rendering preview...</p>';
 
-      const { response, data } = await fetchJson("/admin/api/preview", {
+      const { response, data } = await fetchJson(adminPreviewUrl, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -674,14 +690,12 @@
         buildText = `${mode} was saved, but the build failed.`;
         statusType = "error";
       } else if (sync && !sync.ok && !sync.skipped) {
-        buildText =
-          "Build completed successfully, but syncing to BLENDER_CURRICULUM_WEB_ROOT failed.";
+        buildText = "Build completed successfully, but publishing the site failed.";
         statusType = "error";
       } else if (sync && sync.ok && !sync.skipped) {
-        buildText = "Build and sync completed successfully.";
+        buildText = "Build and publish completed successfully.";
       } else if (sync && sync.skipped) {
-        buildText =
-          "Build completed successfully (no BLENDER_CURRICULUM_WEB_ROOT sync configured).";
+        buildText = "Build completed successfully.";
       }
 
       return {
@@ -697,9 +711,7 @@
     }
 
     async function loadEntryForEdit(entryType, slug) {
-      const { response, data } = await fetchJson(
-        `/admin/api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(slug)}`
-      );
+      const { response, data } = await fetchJson(buildEntryApiUrl(entryType, slug));
       throwIfUnauthorized(response);
 
       if (!response.ok || !data?.ok) {
@@ -737,7 +749,7 @@
     }
 
     async function loadSchemas() {
-      const { response, data } = await fetchJson("/admin/api/schemas");
+      const { response, data } = await fetchJson(adminSchemasUrl);
       throwIfUnauthorized(response);
 
       if (!response.ok || !data?.ok) {
@@ -827,7 +839,7 @@
 
       try {
         const payload = payloadFromForm();
-        const { response, data } = await fetchJson("/admin/api/entries", {
+        const { response, data } = await fetchJson(adminEntriesUrl, {
           method: "POST",
           headers: {
             "content-type": "application/json",
@@ -882,7 +894,7 @@
 
       try {
         const { response, data } = await fetchJson(
-          `/admin/api/entries/${encodeURIComponent(editTarget.entryType)}/${encodeURIComponent(editTarget.slug)}`,
+          buildEntryApiUrl(editTarget.entryType, editTarget.slug),
           {
             method: "DELETE",
           }
@@ -928,7 +940,7 @@
         const username = String(formData.get("username") || "").trim();
         const password = String(formData.get("password") || "");
 
-        const { response, data } = await fetchJson("/admin/login", {
+        const { response, data } = await fetchJson(adminLoginUrl, {
           method: "POST",
           headers: {
             "content-type": "application/json",
@@ -957,7 +969,7 @@
       setStatus("");
 
       try {
-        await fetchJson("/admin/logout", {
+        await fetchJson(adminLogoutUrl, {
           method: "POST",
         });
       } finally {

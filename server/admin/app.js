@@ -1,5 +1,6 @@
 "use strict";
 
+const path = require("path");
 const Fastify = require("fastify");
 const fastifyCookie = require("@fastify/cookie");
 const fastifySession = require("@fastify/session");
@@ -23,7 +24,7 @@ function createAdminApp(config) {
     cookieName: config.sessionCookieName,
     cookie: {
       httpOnly: true,
-      path: "/admin",
+      path: config.adminBasePath,
       sameSite: "lax",
       secure: config.sessionCookieSecure,
       maxAge: config.sessionTtlSeconds * 1000,
@@ -31,15 +32,8 @@ function createAdminApp(config) {
   });
 
   const auth = createAuth({
-    requireProxyAuth: config.requireProxyAuth,
     adminUserFile: config.adminUserFile,
   });
-
-  if (!config.requireProxyAuth && !auth.hasLocalUserFile()) {
-    throw new Error(
-      "No admin user file configured. Set BLENDER_CURRICULUM_ADMIN_USER_FILE."
-    );
-  }
 
   const schemaService = createSchemaService({
     schemaRoot: config.schemaRoot,
@@ -49,7 +43,9 @@ function createAdminApp(config) {
 
   const buildService = createBuildService({
     rootDir: config.rootDir,
+    instanceRoot: config.instanceRoot,
     webRoot: config.webRoot,
+    buildRoot: config.buildRoot,
     npmBinary: config.npmBinary,
     rsyncBinary: config.rsyncBinary,
   });
@@ -63,18 +59,23 @@ function createAdminApp(config) {
   const markdownLib = createMarkdownLib();
 
   registerRoutes(app, {
-    adminDir: config.adminDir,
+    adminBasePath: config.adminBasePath,
+    adminDir: config.adminRuntimeRoot,
     auth,
     schemaService,
     entryService,
     renderMarkdown: (value) => markdownLib.render(String(value || "")),
+    vendorAssetsDir: path.join(
+      config.rootDir,
+      "node_modules",
+      "tiny-markdown-editor",
+      "dist"
+    ),
   });
 
   async function start() {
     await schemaService.loadEntrySchemas();
-    if (!config.requireProxyAuth) {
-      await auth.validateLocalAuthConfig();
-    }
+    await auth.validateLocalAuthConfig();
 
     await app.listen({
       host: config.adminHost,
@@ -83,18 +84,21 @@ function createAdminApp(config) {
 
     if (config.usingDefaultSessionSecret) {
       app.log.warn(
-        "BLENDER_CURRICULUM_SESSION_SECRET is not set. Using an insecure development fallback secret."
+        "SESSION_SECRET is not set. Using an insecure development fallback secret."
       );
     }
 
     app.log.info({
-      adminUrl: `http://${config.adminHost}:${config.adminPort}/admin/`,
-      requireProxyAuth: config.requireProxyAuth,
+      adminUrl: `http://${config.adminHost}:${config.adminPort}${config.adminBasePath}/`,
+      instanceRoot: config.instanceRoot,
       adminUserFile: config.adminUserFile || null,
       themeRoot: config.themeRoot,
       contentRoot: config.contentRoot,
       webRoot: config.webRoot || null,
-      syncToWebRoot: Boolean(config.webRoot),
+      buildRoot: config.buildRoot,
+      adminRuntimeRoot: config.adminRuntimeRoot,
+      adminBasePath: config.adminBasePath,
+      syncToWebRoot: true,
       schemaRoot: config.schemaRoot,
       schemaCount: schemaService.getSchemaCount(),
       defaultEntryType: schemaService.getDefaultEntryType(),

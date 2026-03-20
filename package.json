@@ -1,4 +1,5 @@
 {
+  "name": "curriculum-designer",
   "scripts": {
     "build": "node ops/build.js",
     "clean": "shx rm -rf build_bac && shx mv build build_bac || true",

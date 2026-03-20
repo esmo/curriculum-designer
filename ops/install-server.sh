@@ -1,42 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEFAULT_ENV_FILE="/etc/blender-curriculum/blender-curriculum.env"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_DIR="/etc/curriculum-designer"
+SYSTEMD_DIR="/etc/systemd/system"
+NGINX_DIR="/etc/nginx/snippets"
 
-REPO_DIR="${BLENDER_CURRICULUM_REPO_DIR:-}"
-WEB_ROOT="${BLENDER_CURRICULUM_WEB_ROOT:-}"
-BRANCH="${BLENDER_CURRICULUM_BRANCH:-}"
-THEME_ROOT="${BLENDER_CURRICULUM_THEME_ROOT:-}"
-CONTENT_ROOT="${BLENDER_CURRICULUM_CONTENT_ROOT:-}"
-ENV_FILE="${BLENDER_CURRICULUM_ENV_FILE:-}"
-ADMIN_USER="${BLENDER_CURRICULUM_ADMIN_USER:-}"
-ADMIN_GROUP="${BLENDER_CURRICULUM_ADMIN_GROUP:-}"
-ADMIN_HOST="${BLENDER_CURRICULUM_ADMIN_HOST:-}"
-ADMIN_PORT="${BLENDER_CURRICULUM_ADMIN_PORT:-}"
-ADMIN_USER_FILE="${BLENDER_CURRICULUM_ADMIN_USER_FILE:-}"
-SESSION_SECRET="${BLENDER_CURRICULUM_SESSION_SECRET:-}"
-SESSION_COOKIE_SECURE="${BLENDER_CURRICULUM_SESSION_COOKIE_SECURE:-auto}"
-OVERWRITE_ENV="${BLENDER_CURRICULUM_OVERWRITE_ENV:-false}"
-INSTALL_DEPS="${BLENDER_CURRICULUM_INSTALL_DEPS:-false}"
-SETUP_DIRENV="${BLENDER_CURRICULUM_SETUP_DIRENV:-false}"
-ADMIN_SERVICE="${BLENDER_CURRICULUM_ADMIN_SERVICE:-}"
-SYSTEMD_UNIT_NAME="${BLENDER_CURRICULUM_SYSTEMD_UNIT_NAME:-blender-curriculum-admin.service}"
-NGINX_SNIPPET_NAME="${BLENDER_CURRICULUM_NGINX_SNIPPET_NAME:-blender-curriculum-admin.conf}"
-
-# Keep explicit env var values as highest-priority prompt defaults.
-ENV_PREFILL_REPO_DIR="$REPO_DIR"
-ENV_PREFILL_WEB_ROOT="$WEB_ROOT"
-ENV_PREFILL_BRANCH="$BRANCH"
-ENV_PREFILL_THEME_ROOT="$THEME_ROOT"
-ENV_PREFILL_CONTENT_ROOT="$CONTENT_ROOT"
-ENV_PREFILL_ENV_FILE="$ENV_FILE"
-ENV_PREFILL_ADMIN_USER="$ADMIN_USER"
-ENV_PREFILL_ADMIN_GROUP="$ADMIN_GROUP"
-ENV_PREFILL_ADMIN_HOST="$ADMIN_HOST"
-ENV_PREFILL_ADMIN_PORT="$ADMIN_PORT"
-ENV_PREFILL_ADMIN_USER_FILE="$ADMIN_USER_FILE"
-ENV_PREFILL_SESSION_SECRET="$SESSION_SECRET"
-ENV_PREFILL_SESSION_COOKIE_SECURE="$SESSION_COOKIE_SECURE"
+ARG_INSTANCE_NAME="${1:-}"
+INSTANCE_NAME="${ARG_INSTANCE_NAME:-default}"
+ENV_FILE=""
+INSTANCE_ROOT=""
+ADMIN_PORT=""
+SESSION_SECRET=""
+SERVICE_USER=""
+SERVICE_GROUP=""
+SERVICE_NAME=""
+NGINX_SNIPPET_NAME=""
 
 log() {
   printf '[install] %s\n' "$1"
@@ -53,22 +33,12 @@ require_cmd() {
   fi
 }
 
-default_env_file_path() {
-  if [ -n "$ENV_FILE" ]; then
-    printf '%s' "$ENV_FILE"
-    return
-  fi
-
-  if [ -f "$DEFAULT_ENV_FILE" ]; then
-    printf '%s' "$DEFAULT_ENV_FILE"
-    return
-  fi
-
-  printf '%s' "$DEFAULT_ENV_FILE"
+resolve_path() {
+  node -e 'const path = require("node:path"); process.stdout.write(path.resolve(process.argv[1]));' "$1"
 }
 
 default_service_user() {
-  if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER}" != "root" ]; then
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
     printf '%s' "$SUDO_USER"
     return
   fi
@@ -76,174 +46,161 @@ default_service_user() {
   id -un
 }
 
-load_existing_env_defaults() {
+generate_session_secret() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 32
+    return
+  fi
+
+  node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))'
+}
+
+prompt_with_default() {
+  local name="$1"
+  local label="$2"
+  local fallback="$3"
+  local current="${!name:-}"
+  local value=""
+
+  if [ -z "$current" ]; then
+    current="$fallback"
+  fi
+
+  if [ ! -t 0 ]; then
+    printf -v "$name" '%s' "$current"
+    return
+  fi
+
+  read -r -p "$label [$current]: " value
+  printf -v "$name" '%s' "${value:-$current}"
+}
+
+validate_instance_name() {
+  case "$INSTANCE_NAME" in
+    '' | *[!A-Za-z0-9_-]*)
+      fail "Instance name may only contain letters, numbers, _ and -."
+      ;;
+  esac
+}
+
+load_existing_env() {
   if [ ! -f "$ENV_FILE" ]; then
     return
   fi
 
-  log "Loading existing defaults from: $ENV_FILE"
-  # shellcheck disable=SC1090
+  log "Loading existing configuration from $ENV_FILE"
   set -a
+  # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
-
-  REPO_DIR="${REPO_DIR:-${BLENDER_CURRICULUM_REPO_DIR:-}}"
-  WEB_ROOT="${WEB_ROOT:-${BLENDER_CURRICULUM_WEB_ROOT:-}}"
-  BRANCH="${BRANCH:-${BLENDER_CURRICULUM_BRANCH:-}}"
-  THEME_ROOT="${THEME_ROOT:-${BLENDER_CURRICULUM_THEME_ROOT:-}}"
-  CONTENT_ROOT="${CONTENT_ROOT:-${BLENDER_CURRICULUM_CONTENT_ROOT:-}}"
-  ADMIN_USER="${ADMIN_USER:-${BLENDER_CURRICULUM_ADMIN_USER:-}}"
-  ADMIN_GROUP="${ADMIN_GROUP:-${BLENDER_CURRICULUM_ADMIN_GROUP:-}}"
-  ADMIN_HOST="${ADMIN_HOST:-${BLENDER_CURRICULUM_ADMIN_HOST:-}}"
-  ADMIN_PORT="${ADMIN_PORT:-${BLENDER_CURRICULUM_ADMIN_PORT:-}}"
-  ADMIN_USER_FILE="${ADMIN_USER_FILE:-${BLENDER_CURRICULUM_ADMIN_USER_FILE:-}}"
-  SESSION_SECRET="${SESSION_SECRET:-${BLENDER_CURRICULUM_SESSION_SECRET:-}}"
-  SESSION_COOKIE_SECURE="${SESSION_COOKIE_SECURE:-${BLENDER_CURRICULUM_SESSION_COOKIE_SECURE:-}}"
-  ADMIN_SERVICE="${ADMIN_SERVICE:-${BLENDER_CURRICULUM_ADMIN_SERVICE:-}}"
-
-  # Explicit environment values always win over values loaded from ENV_FILE.
-  REPO_DIR="${ENV_PREFILL_REPO_DIR:-$REPO_DIR}"
-  WEB_ROOT="${ENV_PREFILL_WEB_ROOT:-$WEB_ROOT}"
-  BRANCH="${ENV_PREFILL_BRANCH:-$BRANCH}"
-  THEME_ROOT="${ENV_PREFILL_THEME_ROOT:-$THEME_ROOT}"
-  CONTENT_ROOT="${ENV_PREFILL_CONTENT_ROOT:-$CONTENT_ROOT}"
-  ENV_FILE="${ENV_PREFILL_ENV_FILE:-$ENV_FILE}"
-  ADMIN_USER="${ENV_PREFILL_ADMIN_USER:-$ADMIN_USER}"
-  ADMIN_GROUP="${ENV_PREFILL_ADMIN_GROUP:-$ADMIN_GROUP}"
-  ADMIN_HOST="${ENV_PREFILL_ADMIN_HOST:-$ADMIN_HOST}"
-  ADMIN_PORT="${ENV_PREFILL_ADMIN_PORT:-$ADMIN_PORT}"
-  ADMIN_USER_FILE="${ENV_PREFILL_ADMIN_USER_FILE:-$ADMIN_USER_FILE}"
-  SESSION_SECRET="${ENV_PREFILL_SESSION_SECRET:-$SESSION_SECRET}"
-  SESSION_COOKIE_SECURE="${ENV_PREFILL_SESSION_COOKIE_SECURE:-$SESSION_COOKIE_SECURE}"
-}
-
-prompt_with_prefill() {
-  local name="$1"
-  local label="$2"
-  local fallback_default="$3"
-  local current_value="${!name-}"
-  local prefill="$current_value"
-  local input_value
-
-  if [ -z "$prefill" ]; then
-    prefill="$fallback_default"
-  fi
-
-  if [ ! -t 0 ]; then
-    if [ -n "$prefill" ]; then
-      printf -v "$name" '%s' "$prefill"
-      return
-    fi
-    fail "$name is not set and no interactive terminal is available."
-  fi
-
-  if [ -n "$prefill" ]; then
-    read -r -p "$label [$prefill]: " input_value
-    input_value="${input_value:-$prefill}"
-  else
-    read -r -p "$label: " input_value
-  fi
-
-  if [ -z "$input_value" ]; then
-    fail "$name cannot be empty."
-  fi
-
-  printf -v "$name" '%s' "$input_value"
-}
-
-prompt_secret_with_prefill() {
-  local name="$1"
-  local label="$2"
-  local current_value="${!name-}"
-  local input_value
-
-  if [ ! -t 0 ]; then
-    if [ -z "$current_value" ]; then
-      fail "$name is not set and no interactive terminal is available."
-    fi
-    return
-  fi
-
-  if [ -n "$current_value" ]; then
-    read -r -s -p "$label [leave empty to keep current value]: " input_value
-    printf '\n'
-    input_value="${input_value:-$current_value}"
-  else
-    while true; do
-      read -r -s -p "$label: " input_value
-      printf '\n'
-      if [ -n "$input_value" ]; then
-        break
-      fi
-      log "$name cannot be empty."
-    done
-  fi
-
-  printf -v "$name" '%s' "$input_value"
 }
 
 collect_configuration() {
-  prompt_with_prefill ENV_FILE "Env file path (BLENDER_CURRICULUM_ENV_FILE)" "$(default_env_file_path)"
-  load_existing_env_defaults
+  if [ -t 0 ] && [ -z "$ARG_INSTANCE_NAME" ]; then
+    prompt_with_default INSTANCE_NAME "Instance name" "$INSTANCE_NAME"
+  fi
 
-  prompt_with_prefill REPO_DIR "Repository path (BLENDER_CURRICULUM_REPO_DIR)" "/srv/blender-curriculum/repo"
-  prompt_with_prefill WEB_ROOT "Web root path (BLENDER_CURRICULUM_WEB_ROOT)" "/var/www/blender-curriculum"
-  prompt_with_prefill BRANCH "Git branch (BLENDER_CURRICULUM_BRANCH)" "main"
-  prompt_with_prefill THEME_ROOT "Theme root path (BLENDER_CURRICULUM_THEME_ROOT)" "$REPO_DIR/theme"
-  prompt_with_prefill CONTENT_ROOT "Content root path (BLENDER_CURRICULUM_CONTENT_ROOT)" "/srv/blender-curriculum-content"
-  prompt_with_prefill ADMIN_USER "Admin service user (BLENDER_CURRICULUM_ADMIN_USER)" "$(default_service_user)"
-  prompt_with_prefill ADMIN_GROUP "Admin service group (BLENDER_CURRICULUM_ADMIN_GROUP)" "$ADMIN_USER"
-  prompt_with_prefill ADMIN_HOST "Admin bind host (BLENDER_CURRICULUM_ADMIN_HOST)" "127.0.0.1"
-  prompt_with_prefill ADMIN_PORT "Admin bind port (BLENDER_CURRICULUM_ADMIN_PORT)" "8787"
-  prompt_with_prefill ADMIN_USER_FILE "Admin user file (BLENDER_CURRICULUM_ADMIN_USER_FILE)" "/etc/blender-curriculum/admin-users.txt"
-  prompt_secret_with_prefill SESSION_SECRET "Session secret (BLENDER_CURRICULUM_SESSION_SECRET)"
-  prompt_with_prefill SESSION_COOKIE_SECURE "Session cookie secure mode (BLENDER_CURRICULUM_SESSION_COOKIE_SECURE: auto/true/false)" "auto"
+  validate_instance_name
+
+  ENV_FILE="$ENV_DIR/$INSTANCE_NAME.env"
+  ENV_FILE="$(resolve_path "$ENV_FILE")"
+  load_existing_env
+
+  INSTANCE_ROOT="${INSTANCE_ROOT:-/srv/curriculum-designer/instances/$INSTANCE_NAME}"
+  ADMIN_PORT="${ADMIN_PORT:-8787}"
+  SESSION_SECRET="${SESSION_SECRET:-$(generate_session_secret)}"
+  SERVICE_USER="${SERVICE_USER:-$(default_service_user)}"
+  SERVICE_GROUP="${SERVICE_GROUP:-$SERVICE_USER}"
+
+  prompt_with_default INSTANCE_ROOT "Instance root" "$INSTANCE_ROOT"
+  prompt_with_default ADMIN_PORT "Admin port" "$ADMIN_PORT"
+  prompt_with_default SERVICE_USER "Service user" "$SERVICE_USER"
+  prompt_with_default SERVICE_GROUP "Service group" "$SERVICE_GROUP"
+
+  INSTANCE_ROOT="$(resolve_path "$INSTANCE_ROOT")"
+  SERVICE_NAME="curriculum-designer-admin-$INSTANCE_NAME.service"
+  NGINX_SNIPPET_NAME="curriculum-designer-$INSTANCE_NAME.conf"
 }
 
-validate_admin_config() {
+validate_configuration() {
+  [ "$(id -u)" -eq 0 ] || fail "Run this script with sudo or as root."
+  [ -d "$REPO_DIR/.git" ] || fail "Repository is not a git repository: $REPO_DIR"
+
   case "$ADMIN_PORT" in
     '' | *[!0-9]*)
-      fail "BLENDER_CURRICULUM_ADMIN_PORT must be a numeric port between 1 and 65535."
+      fail "Admin port must be numeric."
       ;;
   esac
 
   if [ "$ADMIN_PORT" -lt 1 ] || [ "$ADMIN_PORT" -gt 65535 ]; then
-    fail "BLENDER_CURRICULUM_ADMIN_PORT must be between 1 and 65535."
-  fi
-
-  if [ -z "$ADMIN_USER_FILE" ]; then
-    fail "BLENDER_CURRICULUM_ADMIN_USER_FILE must be set."
-  fi
-
-  if [ -z "$SESSION_SECRET" ]; then
-    fail "BLENDER_CURRICULUM_SESSION_SECRET must be set."
+    fail "Admin port must be between 1 and 65535."
   fi
 
   if [ "${#SESSION_SECRET}" -lt 32 ]; then
-    fail "BLENDER_CURRICULUM_SESSION_SECRET must be at least 32 characters long."
+    fail "SESSION_SECRET must be at least 32 characters long."
   fi
 
-  case "$(printf '%s' "$SESSION_COOKIE_SECURE" | tr '[:upper:]' '[:lower:]')" in
-    auto|true|false)
-      ;;
-    *)
-      fail "BLENDER_CURRICULUM_SESSION_COOKIE_SECURE must be one of: auto, true, false."
-      ;;
-  esac
+  id "$SERVICE_USER" >/dev/null 2>&1 || fail "Unknown service user: $SERVICE_USER"
+  getent group "$SERVICE_GROUP" >/dev/null 2>&1 || fail "Unknown service group: $SERVICE_GROUP"
+}
+
+ensure_instance_layout() {
+  local theme_root="$INSTANCE_ROOT/theme"
+  local content_root="$INSTANCE_ROOT/content"
+  local build_root="$INSTANCE_ROOT/build"
+  local web_root="$INSTANCE_ROOT/web"
+  local admin_root="$INSTANCE_ROOT/admin"
+  local admin_user_file="$INSTANCE_ROOT/admin-users.txt"
+
+  mkdir -p "$theme_root"
+  mkdir -p "$content_root"
+  mkdir -p "$build_root" "$web_root" "$admin_root"
+
+  if [ -z "$(find "$theme_root" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+    cp -R "$REPO_DIR/theme/." "$theme_root/"
+    log "Copied default theme into $theme_root"
+  else
+    log "Keeping existing theme in $theme_root"
+  fi
+
+  if [ ! -f "$admin_user_file" ]; then
+    cat >"$admin_user_file" <<'EOF'
+# One user per line:
+# username:$argon2id$...
+EOF
+    log "Created $admin_user_file"
+  fi
+
+  chmod 600 "$admin_user_file"
+  chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTANCE_ROOT"
+}
+
+write_env_file() {
+  mkdir -p "$(dirname "$ENV_FILE")"
+
+  {
+    printf 'INSTANCE_ROOT=%q\n' "$INSTANCE_ROOT"
+    printf 'SESSION_SECRET=%q\n' "$SESSION_SECRET"
+    printf 'ADMIN_PORT=%q\n' "$ADMIN_PORT"
+  } >"$ENV_FILE"
+
+  chmod 600 "$ENV_FILE"
+  log "Wrote $ENV_FILE"
 }
 
 write_systemd_unit() {
-  local target_path="$1"
-  cat >"$target_path" <<EOF
+  local target="$SYSTEMD_DIR/$SERVICE_NAME"
+
+  cat >"$target" <<EOF
 [Unit]
-Description=Blender Curriculum Admin Server
+Description=Curriculum Designer Admin Server ($INSTANCE_NAME)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=$ADMIN_USER
-Group=$ADMIN_GROUP
+User=$SERVICE_USER
+Group=$SERVICE_GROUP
 WorkingDirectory=$REPO_DIR
 EnvironmentFile=$ENV_FILE
 ExecStart=/usr/bin/env npm run admin
@@ -253,208 +210,65 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOF
+
+  log "Wrote $target"
 }
 
 write_nginx_snippet() {
-  local target_path="$1"
-  cat >"$target_path" <<EOF
+  local target="$NGINX_DIR/$NGINX_SNIPPET_NAME"
+  local web_root="$INSTANCE_ROOT/web"
+
+  mkdir -p "$NGINX_DIR"
+  cat >"$target" <<EOF
+root $web_root;
+index index.html;
+
 location = /admin {
   return 301 /admin/;
 }
 
 location /admin/ {
-  proxy_pass http://$ADMIN_HOST:$ADMIN_PORT/admin/;
+  proxy_pass http://127.0.0.1:$ADMIN_PORT/admin/;
   proxy_set_header Host \$host;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto \$scheme;
 }
 EOF
+
+  log "Wrote $target"
 }
 
-ensure_admin_user_file() {
-  local admin_user_dir
-
-  admin_user_dir="$(dirname "$ADMIN_USER_FILE")"
-  mkdir -p "$admin_user_dir"
-
-  if [ ! -f "$ADMIN_USER_FILE" ]; then
-    cat >"$ADMIN_USER_FILE" <<EOF
-# One user per line:
-# username:\$argon2id\$...
-EOF
-  fi
-
-  chmod 600 "$ADMIN_USER_FILE" || true
-  chown "$ADMIN_USER:$ADMIN_GROUP" "$ADMIN_USER_FILE" 2>/dev/null || true
-  log "Ensured admin user file exists: $ADMIN_USER_FILE"
-}
-
-generate_runtime_configs() {
-  local generated_dir
-  local generated_systemd
-  local generated_nginx
-  local systemd_target
-  local nginx_target
-
-  generated_dir="$REPO_DIR/ops/generated"
-  generated_systemd="$generated_dir/$SYSTEMD_UNIT_NAME"
-  generated_nginx="$generated_dir/$NGINX_SNIPPET_NAME"
-
-  mkdir -p "$generated_dir"
-  write_systemd_unit "$generated_systemd"
-  write_nginx_snippet "$generated_nginx"
-
-  log "Generated systemd unit: $generated_systemd"
-  log "Generated nginx snippet: $generated_nginx"
-
-  if [ "$(id -u)" -ne 0 ]; then
-    log "Not running as root: skipped install to /etc."
-    return
-  fi
-
-  systemd_target="/etc/systemd/system/$SYSTEMD_UNIT_NAME"
-  nginx_target="/etc/nginx/snippets/$NGINX_SNIPPET_NAME"
-
-  mkdir -p /etc/systemd/system /etc/nginx/snippets
-  cp "$generated_systemd" "$systemd_target"
-  cp "$generated_nginx" "$nginx_target"
-
-  log "Installed systemd unit: $systemd_target"
-  log "Installed nginx snippet: $nginx_target"
-}
-
-maybe_install_deps() {
-  if [ "$INSTALL_DEPS" != "true" ]; then
-    return
-  fi
-
-  if [ "$(id -u)" -ne 0 ]; then
-    fail "BLENDER_CURRICULUM_INSTALL_DEPS=true requires root (sudo)."
-  fi
-
-  if ! command -v apt-get >/dev/null 2>&1; then
-    fail "BLENDER_CURRICULUM_INSTALL_DEPS=true currently supports apt-get only."
-  fi
-
-  log "Installing dependencies via apt-get (git, rsync, nodejs, npm)."
-  apt-get update
-  apt-get install -y git rsync nodejs npm
-}
-
-write_env_file() {
-  local env_dir
-  env_dir="$(dirname "$ENV_FILE")"
-  mkdir -p "$env_dir"
-
-  if [ -f "$ENV_FILE" ] && [ "$OVERWRITE_ENV" != "true" ]; then
-    log "Env file exists, keeping current file: $ENV_FILE"
-    return
-  fi
-
-  log "Writing env file: $ENV_FILE"
-  cat >"$ENV_FILE" <<EOF
-BLENDER_CURRICULUM_REPO_DIR=$REPO_DIR
-BLENDER_CURRICULUM_WEB_ROOT=$WEB_ROOT
-BLENDER_CURRICULUM_BRANCH=$BRANCH
-BLENDER_CURRICULUM_THEME_ROOT=$THEME_ROOT
-BLENDER_CURRICULUM_CONTENT_ROOT=$CONTENT_ROOT
-BLENDER_CURRICULUM_ADMIN_HOST=$ADMIN_HOST
-BLENDER_CURRICULUM_ADMIN_PORT=$ADMIN_PORT
-BLENDER_CURRICULUM_ADMIN_USER_FILE=$ADMIN_USER_FILE
-BLENDER_CURRICULUM_SESSION_SECRET=$SESSION_SECRET
-BLENDER_CURRICULUM_SESSION_COOKIE_SECURE=$SESSION_COOKIE_SECURE
-BLENDER_CURRICULUM_REQUIRE_PROXY_AUTH=false
-# Optional:
-# BLENDER_CURRICULUM_ADMIN_SERVICE=$SYSTEMD_UNIT_NAME
-# BLENDER_CURRICULUM_ALLOW_DIRTY=false
-# BLENDER_CURRICULUM_FORCE_DEPLOY=false
-EOF
-
-  if [ -n "$ADMIN_SERVICE" ]; then
-    printf 'BLENDER_CURRICULUM_ADMIN_SERVICE=%s\n' "$ADMIN_SERVICE" >>"$ENV_FILE"
-  fi
-
-  chmod 600 "$ENV_FILE" || true
-}
-
-setup_direnv() {
-  local envrc_path
-  local shell_user
-
-  if [ "$SETUP_DIRENV" != "true" ]; then
-    log "Skipping direnv setup (BLENDER_CURRICULUM_SETUP_DIRENV=false)."
-    return
-  fi
-
-  envrc_path="$REPO_DIR/.envrc"
-  cat >"$envrc_path" <<EOF
-set -a
-source "$ENV_FILE"
-set +a
-EOF
-
-  chmod 644 "$envrc_path" || true
-  chown "$ADMIN_USER:$ADMIN_GROUP" "$envrc_path" 2>/dev/null || true
-  log "Wrote direnv file: $envrc_path"
-
-  if ! command -v direnv >/dev/null 2>&1; then
-    log "direnv not found. Install direnv and add hook to your shell to enable auto-loading."
-    log "  zsh:  eval \"\$(direnv hook zsh)\""
-    log "  bash: eval \"\$(direnv hook bash)\""
-    return
-  fi
-
-  shell_user="${SUDO_USER:-$(id -un)}"
-  if id "$shell_user" >/dev/null 2>&1; then
-    if [ "$(id -u)" -eq 0 ] && [ "$shell_user" != "root" ]; then
-      sudo -u "$shell_user" direnv allow "$REPO_DIR" >/dev/null 2>&1 || true
-    else
-      direnv allow "$REPO_DIR" >/dev/null 2>&1 || true
-    fi
-    log "direnv allowed for $shell_user in: $REPO_DIR"
-  fi
-
-  log "If not already configured, add direnv hook to your shell profile:"
-  log "  zsh:  eval \"\$(direnv hook zsh)\""
-  log "  bash: eval \"\$(direnv hook bash)\""
+print_next_steps() {
+  log "Installation complete."
+  log "Next steps:"
+  log "  cd '$REPO_DIR'"
+  log "  INSTANCE_ROOT='$INSTANCE_ROOT' npm run admin:users -- set admin"
+  log "  systemctl daemon-reload"
+  log "  systemctl enable --now '$SERVICE_NAME'"
+  log "  Add this line to your Nginx server block:"
+  log "    include /etc/nginx/snippets/$NGINX_SNIPPET_NAME;"
+  log "  nginx -t && systemctl reload nginx"
+  log "  Deploy the site:"
+  log "    '$REPO_DIR/ops/deploy-pull.sh' '$INSTANCE_NAME'"
 }
 
 main() {
-  collect_configuration
-  validate_admin_config
-  maybe_install_deps
-
+  require_cmd find
+  require_cmd getent
   require_cmd git
+  require_cmd node
   require_cmd npm
   require_cmd rsync
+  require_cmd systemctl
 
-  [ -d "$REPO_DIR/.git" ] || fail "BLENDER_CURRICULUM_REPO_DIR is not a git repository: $REPO_DIR"
-  [ -f "$REPO_DIR/ops/deploy-pull.sh" ] || fail "Missing deploy script in repo."
-
-  log "Creating required directories."
-  mkdir -p "$WEB_ROOT"
-  mkdir -p "$CONTENT_ROOT/lessons" "$CONTENT_ROOT/tasks" "$CONTENT_ROOT/topics" "$CONTENT_ROOT/resources"
-  log "Repo content is not migrated. Production content lives only in $CONTENT_ROOT."
-
-  chmod +x "$REPO_DIR/ops/deploy-pull.sh"
+  collect_configuration
+  validate_configuration
+  ensure_instance_layout
   write_env_file
-  ensure_admin_user_file
-  setup_direnv
-  generate_runtime_configs
-
-  log "Installation complete."
-  log "Next steps:"
-  log "  '$REPO_DIR/ops/deploy-pull.sh'"
-  log "  eval \"\$('$REPO_DIR/ops/deploy-pull.sh' print-env)\""
-  log "  Create the first admin user:"
-  log "    cd '$REPO_DIR' && npm run admin:users -- set admin"
-  if [ "$(id -u)" -eq 0 ]; then
-    log "  systemctl daemon-reload"
-    log "  systemctl enable --now '$SYSTEMD_UNIT_NAME'"
-    log "  Include this line in your Nginx server block:"
-    log "    include /etc/nginx/snippets/$NGINX_SNIPPET_NAME;"
-    log "  nginx -t && systemctl reload nginx"
-  fi
+  write_systemd_unit
+  write_nginx_snippet
+  systemctl daemon-reload
+  print_next_steps
 }
 
 main

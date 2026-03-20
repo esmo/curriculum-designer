@@ -1,204 +1,159 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEFAULT_ENV_FILE="/etc/blender-curriculum/blender-curriculum.env"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_DIR="/etc/curriculum-designer"
+DEFAULT_INSTANCE_NAME="default"
 
-resolve_env_file() {
-  if [ -n "${BLENDER_CURRICULUM_ENV_FILE:-}" ]; then
-    printf '%s\n' "$BLENDER_CURRICULUM_ENV_FILE"
-    return
-  fi
+INSTANCE_NAME=""
+ENV_FILE=""
+INSTANCE_ROOT=""
+BUILD_ROOT=""
+WEB_ROOT=""
+SERVICE_NAME=""
 
-  if [ -f "$DEFAULT_ENV_FILE" ]; then
-    printf '%s\n' "$DEFAULT_ENV_FILE"
-    return
-  fi
-
-  printf '%s\n' "$DEFAULT_ENV_FILE"
+log() {
+  printf '[deploy] %s\n' "$1"
 }
 
-remember_override() {
-  local name="$1"
-  local has_name="HAS_OVERRIDE_${name}"
-  local value_name="OVERRIDE_${name}"
-
-  if [ "${!name+x}" = "x" ]; then
-    printf -v "$has_name" '%s' "true"
-    printf -v "$value_name" '%s' "${!name}"
-  else
-    printf -v "$has_name" '%s' "false"
-  fi
-}
-
-restore_override() {
-  local name="$1"
-  local has_name="HAS_OVERRIDE_${name}"
-  local value_name="OVERRIDE_${name}"
-
-  if [ "${!has_name:-false}" = "true" ]; then
-    export "$name=${!value_name}"
-  fi
-}
-
-load_runtime_env() {
-  local env_file
-  env_file="$(resolve_env_file)"
-
-  remember_override "BLENDER_CURRICULUM_REPO_DIR"
-  remember_override "BLENDER_CURRICULUM_BRANCH"
-  remember_override "BLENDER_CURRICULUM_WEB_ROOT"
-  remember_override "BLENDER_CURRICULUM_THEME_ROOT"
-  remember_override "BLENDER_CURRICULUM_CONTENT_ROOT"
-  remember_override "BLENDER_CURRICULUM_ADMIN_SERVICE"
-  remember_override "BLENDER_CURRICULUM_FORCE_DEPLOY"
-  remember_override "BLENDER_CURRICULUM_ALLOW_DIRTY"
-  remember_override "BLENDER_CURRICULUM_ENV_FILE"
-
-  if [ -f "$env_file" ]; then
-    set -a
-    # shellcheck disable=SC1090
-    source "$env_file"
-    set +a
-  fi
-
-  export BLENDER_CURRICULUM_ENV_FILE="$env_file"
-  restore_override "BLENDER_CURRICULUM_REPO_DIR"
-  restore_override "BLENDER_CURRICULUM_BRANCH"
-  restore_override "BLENDER_CURRICULUM_WEB_ROOT"
-  restore_override "BLENDER_CURRICULUM_THEME_ROOT"
-  restore_override "BLENDER_CURRICULUM_CONTENT_ROOT"
-  restore_override "BLENDER_CURRICULUM_ADMIN_SERVICE"
-  restore_override "BLENDER_CURRICULUM_FORCE_DEPLOY"
-  restore_override "BLENDER_CURRICULUM_ALLOW_DIRTY"
-  restore_override "BLENDER_CURRICULUM_ENV_FILE"
-}
-
-print_env_exports() {
-  local name
-  for name in \
-    BLENDER_CURRICULUM_ENV_FILE \
-    BLENDER_CURRICULUM_REPO_DIR \
-    BLENDER_CURRICULUM_BRANCH \
-    BLENDER_CURRICULUM_WEB_ROOT \
-    BLENDER_CURRICULUM_THEME_ROOT \
-    BLENDER_CURRICULUM_CONTENT_ROOT \
-    BLENDER_CURRICULUM_ADMIN_HOST \
-    BLENDER_CURRICULUM_ADMIN_PORT \
-    BLENDER_CURRICULUM_ADMIN_USER_FILE \
-    BLENDER_CURRICULUM_SESSION_SECRET \
-    BLENDER_CURRICULUM_SESSION_COOKIE_NAME \
-    BLENDER_CURRICULUM_SESSION_COOKIE_SECURE \
-    BLENDER_CURRICULUM_SESSION_TTL_SECONDS \
-    BLENDER_CURRICULUM_ADMIN_SERVICE \
-    BLENDER_CURRICULUM_FORCE_DEPLOY \
-    BLENDER_CURRICULUM_ALLOW_DIRTY
-  do
-    if [ "${!name+x}" = "x" ]; then
-      printf 'export %s=%q\n' "$name" "${!name}"
-    fi
-  done
-}
-
-COMMAND="${1:-deploy}"
-
-load_runtime_env
-
-if [ "$COMMAND" = "print-env" ]; then
-  print_env_exports
-  exit 0
-fi
-
-if [ "$COMMAND" != "deploy" ]; then
-  echo "Usage: $0 [deploy|print-env]" >&2
+fail() {
+  printf '[deploy] ERROR: %s\n' "$1" >&2
   exit 1
-fi
-
-shift || true
-
-REPO_DIR="${BLENDER_CURRICULUM_REPO_DIR:-/srv/blender-curriculum/repo}"
-BRANCH="${BLENDER_CURRICULUM_BRANCH:-main}"
-WEB_ROOT="${BLENDER_CURRICULUM_WEB_ROOT:-/var/www/blender-curriculum}"
-THEME_ROOT="${BLENDER_CURRICULUM_THEME_ROOT:-$REPO_DIR/theme}"
-CONTENT_ROOT="${BLENDER_CURRICULUM_CONTENT_ROOT:-$REPO_DIR/content}"
-ADMIN_SERVICE="${BLENDER_CURRICULUM_ADMIN_SERVICE:-}"
-FORCE_DEPLOY="${BLENDER_CURRICULUM_FORCE_DEPLOY:-false}"
-ALLOW_DIRTY="${BLENDER_CURRICULUM_ALLOW_DIRTY:-false}"
+}
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Missing required command: $1" >&2
-    exit 1
+    fail "Missing required command: $1"
   fi
 }
 
-require_cmd git
-require_cmd npm
-require_cmd rsync
+resolve_path() {
+  node -e 'const path = require("node:path"); process.stdout.write(path.resolve(process.argv[1]));' "$1"
+}
 
-cd "$REPO_DIR"
+validate_instance_name() {
+  case "$INSTANCE_NAME" in
+    '' | *[!A-Za-z0-9_-]*)
+      fail "Instance name may only contain letters, numbers, _ and -."
+      ;;
+  esac
+}
 
-if [ ! -d .git ]; then
-  echo "REPO_DIR is not a git repository: $REPO_DIR" >&2
-  exit 1
-fi
+resolve_target() {
+  local input="${1:-$DEFAULT_INSTANCE_NAME}"
 
-has_local_changes="false"
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  has_local_changes="true"
-fi
+  if [ "${input#*/}" != "$input" ] || [ "${input%.env}" != "$input" ]; then
+    ENV_FILE="$input"
+    INSTANCE_NAME="$(basename "$input")"
+    INSTANCE_NAME="${INSTANCE_NAME%.env}"
+  else
+    INSTANCE_NAME="$input"
+    ENV_FILE="$ENV_DIR/$INSTANCE_NAME.env"
+  fi
 
-if [ "$has_local_changes" = "true" ] && [ "$ALLOW_DIRTY" != "true" ]; then
-  echo "Repository has local changes. Refusing to deploy." >&2
-  echo "Set BLENDER_CURRICULUM_ALLOW_DIRTY=true to deploy local (uncommitted) content." >&2
-  exit 1
-fi
+  validate_instance_name
+  ENV_FILE="$(resolve_path "$ENV_FILE")"
+  SERVICE_NAME="curriculum-designer-admin-$INSTANCE_NAME.service"
+}
 
-if [ "$has_local_changes" = "true" ]; then
-  echo "Repository has local changes. Skipping git fetch/merge."
-else
-  content_outside_repo="false"
-  case "$CONTENT_ROOT" in
-    "$REPO_DIR"/*) ;;
-    *) content_outside_repo="true" ;;
+load_instance_env() {
+  [ -f "$ENV_FILE" ] || fail "Env file not found: $ENV_FILE"
+
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+
+  [ -n "${INSTANCE_ROOT:-}" ] || fail "INSTANCE_ROOT must be set in $ENV_FILE."
+  [ -n "${SESSION_SECRET:-}" ] || fail "SESSION_SECRET must be set in $ENV_FILE."
+
+  if [ "${#SESSION_SECRET}" -lt 32 ]; then
+    fail "SESSION_SECRET must be at least 32 characters long."
+  fi
+
+  case "${ADMIN_PORT:-8787}" in
+    '' | *[!0-9]*)
+      fail "ADMIN_PORT must be numeric."
+      ;;
   esac
 
-  git fetch --prune origin "$BRANCH"
-
-  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
-    git checkout "$BRANCH"
-  else
-    git checkout -b "$BRANCH" "origin/$BRANCH"
+  if [ "${ADMIN_PORT:-8787}" -lt 1 ] || [ "${ADMIN_PORT:-8787}" -gt 65535 ]; then
+    fail "ADMIN_PORT must be between 1 and 65535."
   fi
 
-  local_commit="$(git rev-parse HEAD)"
-  remote_commit="$(git rev-parse "origin/$BRANCH")"
+  INSTANCE_ROOT="$(resolve_path "$INSTANCE_ROOT")"
+  BUILD_ROOT="$INSTANCE_ROOT/build"
+  WEB_ROOT="$INSTANCE_ROOT/web"
+}
 
-  if [ "$local_commit" = "$remote_commit" ]; then
-    if [ "$content_outside_repo" = "true" ]; then
-      echo "No new git commit, but BLENDER_CURRICULUM_CONTENT_ROOT is outside repo. Continuing."
-    elif [ "$FORCE_DEPLOY" != "true" ]; then
-      echo "No changes on origin/$BRANCH. Nothing to deploy."
-      echo "Set BLENDER_CURRICULUM_FORCE_DEPLOY=true to build and sync anyway."
-      exit 0
-    else
-      echo "No new commit, but BLENDER_CURRICULUM_FORCE_DEPLOY=true. Continuing."
-    fi
-  else
-    git merge --ff-only "origin/$BRANCH"
+update_repository() {
+  cd "$REPO_DIR"
+
+  [ -d .git ] || fail "Repository is not a git repository: $REPO_DIR"
+
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    fail "Repository has local changes. Commit or stash them before deploying."
   fi
-fi
 
-npm ci
-mkdir -p "$CONTENT_ROOT/lessons" "$CONTENT_ROOT/tasks" "$CONTENT_ROOT/topics" "$CONTENT_ROOT/resources"
-BLENDER_CURRICULUM_THEME_ROOT="$THEME_ROOT" \
-BLENDER_CURRICULUM_CONTENT_ROOT="$CONTENT_ROOT" \
-npm run build
+  git fetch --prune origin main
 
-rsync -az --delete build/ "${WEB_ROOT}/"
+  if git show-ref --verify --quiet refs/heads/main; then
+    git checkout main
+  else
+    git checkout -b main origin/main
+  fi
 
-if [ -n "$ADMIN_SERVICE" ]; then
-  sudo systemctl restart "$ADMIN_SERVICE"
-  sudo systemctl is-active --quiet "$ADMIN_SERVICE"
-fi
+  git merge --ff-only origin/main
+}
 
-echo "Deployment finished at commit $(git rev-parse --short HEAD)."
+build_and_publish() {
+  cd "$REPO_DIR"
+  npm ci
+
+  mkdir -p "$WEB_ROOT"
+  INSTANCE_ROOT="$INSTANCE_ROOT" npm run build
+  rsync -az --delete "${BUILD_ROOT}/" "${WEB_ROOT}/"
+}
+
+restart_service() {
+  local -a systemctl_cmd
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    log "systemctl not available. Skipping service restart."
+    return
+  fi
+
+  if ! systemctl cat "$SERVICE_NAME" >/dev/null 2>&1; then
+    log "Systemd unit not installed. Skipping service restart: $SERVICE_NAME"
+    return
+  fi
+
+  if [ "$(id -u)" -eq 0 ]; then
+    systemctl_cmd=(systemctl)
+  else
+    systemctl_cmd=(sudo systemctl)
+  fi
+
+  "${systemctl_cmd[@]}" restart "$SERVICE_NAME"
+  "${systemctl_cmd[@]}" is-active --quiet "$SERVICE_NAME"
+  log "Restarted $SERVICE_NAME."
+}
+
+main() {
+  require_cmd git
+  require_cmd node
+  require_cmd npm
+  require_cmd rsync
+
+  resolve_target "${1:-$DEFAULT_INSTANCE_NAME}"
+  load_instance_env
+  update_repository
+  build_and_publish
+  restart_service
+
+  cd "$REPO_DIR"
+  log "Published $INSTANCE_NAME at commit $(git rev-parse --short HEAD)."
+}
+
+main "$@"

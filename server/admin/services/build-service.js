@@ -1,12 +1,13 @@
 "use strict";
 
-const path = require("path");
 const { spawn } = require("node:child_process");
 
 function createBuildService(input) {
   const {
     rootDir,
+    instanceRoot,
     webRoot,
+    buildRoot,
     npmBinary,
     rsyncBinary,
   } = input;
@@ -30,7 +31,7 @@ function createBuildService(input) {
       const startedAt = new Date().toISOString();
       const child = spawn(
         rsyncBinary,
-        ["-az", "--delete", path.join(rootDir, "build/"), `${webRoot}/`],
+        ["-az", "--delete", `${buildRoot}/`, `${webRoot}/`],
         {
           cwd: rootDir,
           env: process.env,
@@ -70,9 +71,13 @@ function createBuildService(input) {
   function runBuild() {
     return new Promise((resolve) => {
       const startedAt = new Date().toISOString();
+      const buildEnv = {
+        ...process.env,
+        INSTANCE_ROOT: instanceRoot,
+      };
       const child = spawn(npmBinary, ["run", "build"], {
         cwd: rootDir,
-        env: process.env,
+        env: buildEnv,
       });
 
       let stderr = "";

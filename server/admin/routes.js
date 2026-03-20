@@ -1,6 +1,5 @@
 "use strict";
 
-const path = require("node:path");
 const fastifyStatic = require("@fastify/static");
 
 function sendError(reply, error) {
@@ -29,36 +28,40 @@ function sessionPayload(userName) {
 
 function registerRoutes(app, input) {
   const {
+    adminBasePath,
     adminDir,
     auth,
     schemaService,
     entryService,
     renderMarkdown,
+    vendorAssetsDir,
   } = input;
+  const adminRootUrl = `${adminBasePath}/`;
+  const adminApiBasePath = `${adminBasePath}/api`;
 
   app.register(fastifyStatic, {
     root: adminDir,
-    prefix: "/admin/",
+    prefix: adminRootUrl,
     index: ["index.html"],
   });
 
   app.register(fastifyStatic, {
-    root: path.resolve(adminDir, "..", "node_modules", "tiny-markdown-editor", "dist"),
-    prefix: "/admin/assets/vendor/tiny-mde/",
+    root: vendorAssetsDir,
+    prefix: `${adminBasePath}/assets/vendor/tiny-mde/`,
     decorateReply: false,
   });
 
-  app.get("/admin", async (_, reply) => {
-    reply.redirect("/admin/");
+  app.get(adminBasePath, async (_, reply) => {
+    reply.redirect(adminRootUrl);
   });
 
-  app.get("/admin/session", async (request, reply) => {
+  app.get(`${adminBasePath}/session`, async (request, reply) => {
     const userName = auth.requestAuthUser(request) || "";
     reply.header("cache-control", "no-store");
     return sessionPayload(userName);
   });
 
-  app.post("/admin/login", async (request, reply) => {
+  app.post(`${adminBasePath}/login`, async (request, reply) => {
     if (!auth.hasLocalUserFile()) {
       reply.code(503).send({
         error: "No admin user file configured on the server.",
@@ -84,7 +87,7 @@ function registerRoutes(app, input) {
     }
   });
 
-  app.post("/admin/logout", async (request, reply) => {
+  app.post(`${adminBasePath}/logout`, async (request, reply) => {
     try {
       await auth.clearSession(request);
     } catch (error) {
@@ -97,7 +100,7 @@ function registerRoutes(app, input) {
   });
 
   app.get(
-    "/admin/api/schemas",
+    `${adminApiBasePath}/schemas`,
     {
       preHandler: auth.requireAdminAuth,
     },
@@ -109,7 +112,7 @@ function registerRoutes(app, input) {
   );
 
   app.get(
-    "/admin/api/entries/:entryType/:slug",
+    `${adminApiBasePath}/entries/:entryType/:slug`,
     {
       preHandler: auth.requireAdminAuth,
     },
@@ -124,7 +127,7 @@ function registerRoutes(app, input) {
   );
 
   app.post(
-    "/admin/api/preview",
+    `${adminApiBasePath}/preview`,
     {
       preHandler: auth.requireAdminAuth,
     },
@@ -143,7 +146,7 @@ function registerRoutes(app, input) {
   );
 
   app.post(
-    "/admin/api/entries",
+    `${adminApiBasePath}/entries`,
     {
       preHandler: auth.requireAdminAuth,
     },
@@ -161,7 +164,7 @@ function registerRoutes(app, input) {
   );
 
   app.delete(
-    "/admin/api/entries/:entryType/:slug",
+    `${adminApiBasePath}/entries/:entryType/:slug`,
     {
       preHandler: auth.requireAdminAuth,
     },

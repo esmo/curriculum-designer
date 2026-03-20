@@ -4,17 +4,15 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { deriveInstancePaths } = require("../lib/instance");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const THEME_ROOT = path.resolve(
-  process.env.BLENDER_CURRICULUM_THEME_ROOT || path.join(ROOT_DIR, "theme")
-);
-const CONTENT_ROOT = path.resolve(
-  process.env.BLENDER_CURRICULUM_CONTENT_ROOT || path.join(ROOT_DIR, "content")
-);
-const OUTPUT_DIR = path.join(ROOT_DIR, "build");
-const ADMIN_RUNTIME_DIR = path.join(ROOT_DIR, "admin");
-const CONTENT_DIRS = ["lessons", "tasks", "topics", "resources"];
+const INSTANCE = deriveInstancePaths(ROOT_DIR, process.env.INSTANCE_ROOT);
+const THEME_ROOT = INSTANCE.themeRoot;
+const CONTENT_ROOT = INSTANCE.contentRoot;
+const OUTPUT_DIR = INSTANCE.buildRoot;
+const ADMIN_RUNTIME_DIR = INSTANCE.adminRuntimeRoot;
+const ADMIN_OUTPUT_DIR = path.join(OUTPUT_DIR, "admin");
 
 function ensureDirectory(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -28,9 +26,6 @@ function ensureThemeDirectory() {
 
 function ensureContentDirectory() {
   ensureDirectory(CONTENT_ROOT);
-  for (const dirName of CONTENT_DIRS) {
-    ensureDirectory(path.join(CONTENT_ROOT, dirName));
-  }
 }
 
 function prepareInputDirectory() {
@@ -38,7 +33,7 @@ function prepareInputDirectory() {
   ensureContentDirectory();
 
   const tempInputDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "blender-curriculum-input-")
+    path.join(os.tmpdir(), "curriculum-designer-input-")
   );
 
   fs.cpSync(THEME_ROOT, tempInputDir, { recursive: true });
@@ -78,7 +73,7 @@ function runBuild(inputDir) {
 }
 
 function syncAdminFrontend() {
-  const builtAdminDir = path.join(OUTPUT_DIR, "admin");
+  const builtAdminDir = ADMIN_OUTPUT_DIR;
   const builtAdminIndex = path.join(builtAdminDir, "index.html");
   if (!fs.existsSync(builtAdminIndex)) {
     throw new Error(
@@ -88,6 +83,10 @@ function syncAdminFrontend() {
 
   ensureDirectory(ADMIN_RUNTIME_DIR);
   fs.copyFileSync(builtAdminIndex, path.join(ADMIN_RUNTIME_DIR, "index.html"));
+  fs.rmSync(path.join(ADMIN_RUNTIME_DIR, "assets"), {
+    recursive: true,
+    force: true,
+  });
 
   const builtAdminAssets = path.join(builtAdminDir, "assets");
   if (fs.existsSync(builtAdminAssets) && fs.statSync(builtAdminAssets).isDirectory()) {
@@ -101,8 +100,11 @@ function syncAdminFrontend() {
 function main() {
   const { inputDir, cleanup } = prepareInputDirectory();
 
+  process.stdout.write(`Using instance root: ${INSTANCE.instanceRoot}\n`);
   process.stdout.write(`Using theme root: ${THEME_ROOT}\n`);
   process.stdout.write(`Using content root: ${CONTENT_ROOT}\n`);
+  process.stdout.write(`Using build root: ${OUTPUT_DIR}\n`);
+  process.stdout.write(`Using admin runtime root: ${ADMIN_RUNTIME_DIR}\n`);
 
   try {
     runBuild(inputDir);

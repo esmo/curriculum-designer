@@ -1,7 +1,9 @@
 "use strict";
 
+const path = require("node:path");
 const readline = require("node:readline");
 
+const { deriveInstancePaths } = require("../lib/instance");
 const { hashPassword } = require("./admin/password-hash");
 const {
   normalizeUserName,
@@ -30,13 +32,8 @@ function requiredArg(args, index, label) {
 }
 
 function defaultUserFile() {
-  const filePath = String(process.env.BLENDER_CURRICULUM_ADMIN_USER_FILE || "").trim();
-  if (!filePath) {
-    throw new Error(
-      "Missing admin user file. Pass it explicitly or set BLENDER_CURRICULUM_ADMIN_USER_FILE."
-    );
-  }
-  return filePath;
+  const rootDir = path.resolve(__dirname, "..");
+  return deriveInstancePaths(rootDir, process.env.INSTANCE_ROOT).adminUserFile;
 }
 
 function resolveListFilePath(args) {
