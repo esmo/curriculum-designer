@@ -120,9 +120,6 @@ nav ul {
 }
 
 /* List item styling */
-nav ul li {
-    /* float: left; */
-}
 
 nav ul li.is-hidden {
     display: none;
@@ -206,11 +203,6 @@ nav ul li a:hover, nav ul li.active a {
 .breadcrumb li:last-child {
   color: #6c757d;
   cursor: default;
-}
-
-/* Optionally, for accessibility */
-.breadcrumb {
-  aria-label: "breadcrumb";
 }
 
 /* Blender Badges specific stuff */

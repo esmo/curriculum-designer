@@ -109,7 +109,6 @@ Install-script specific variables:
 
 Admin runtime variables:
 
-- `BLENDER_CURRICULUM_SCHEMA_ROOT`
 - `BLENDER_CURRICULUM_ADMIN_USER_FILE`
 - `BLENDER_CURRICULUM_SESSION_SECRET`
 - `BLENDER_CURRICULUM_SESSION_COOKIE_NAME`
@@ -266,8 +265,8 @@ sudo chmod 600 /etc/blender-curriculum/admin-users.txt
 
 Admin forms are defined via YAML schema files in:
 
-- default: `admin/schemas/`
-- optional override: `BLENDER_CURRICULUM_SCHEMA_ROOT`
+- default: `theme/admin/schemas/`
+- resolved from `BLENDER_CURRICULUM_THEME_ROOT`
 
 Supported schema files use `.yml` or `.yaml`.
 Example:

@@ -91,6 +91,7 @@ function createAdminApp(config) {
       adminUrl: `http://${config.adminHost}:${config.adminPort}/admin/`,
       requireProxyAuth: config.requireProxyAuth,
       adminUserFile: config.adminUserFile || null,
+      themeRoot: config.themeRoot,
       contentRoot: config.contentRoot,
       webRoot: config.webRoot || null,
       syncToWebRoot: Boolean(config.webRoot),

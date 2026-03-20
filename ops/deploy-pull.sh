@@ -91,8 +91,7 @@ print_env_exports() {
     BLENDER_CURRICULUM_SESSION_TTL_SECONDS \
     BLENDER_CURRICULUM_ADMIN_SERVICE \
     BLENDER_CURRICULUM_FORCE_DEPLOY \
-    BLENDER_CURRICULUM_ALLOW_DIRTY \
-    BLENDER_CURRICULUM_SCHEMA_ROOT
+    BLENDER_CURRICULUM_ALLOW_DIRTY
   do
     if [ "${!name+x}" = "x" ]; then
       printf 'export %s=%q\n' "$name" "${!name}"

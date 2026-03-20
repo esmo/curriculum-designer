@@ -64,15 +64,16 @@ function resolveSessionSecret(value) {
 
 function loadConfig(env = process.env) {
   const rootDir = path.resolve(__dirname, "..", "..");
+  const themeRoot = path.resolve(
+    env.BLENDER_CURRICULUM_THEME_ROOT || path.join(rootDir, "theme")
+  );
   const contentRoot = path.resolve(
     env.BLENDER_CURRICULUM_CONTENT_ROOT || path.join(rootDir, "content")
   );
   const webRoot = env.BLENDER_CURRICULUM_WEB_ROOT
     ? path.resolve(env.BLENDER_CURRICULUM_WEB_ROOT)
     : "";
-  const schemaRoot = path.resolve(
-    env.BLENDER_CURRICULUM_SCHEMA_ROOT || path.join(rootDir, "admin", "schemas")
-  );
+  const schemaRoot = path.join(themeRoot, "admin", "schemas");
   const {
     sessionSecret,
     usingDefaultSessionSecret,
@@ -80,6 +81,7 @@ function loadConfig(env = process.env) {
 
   return {
     rootDir,
+    themeRoot,
     contentRoot,
     webRoot,
     schemaRoot,
