@@ -7,6 +7,11 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
+const {
+  listUsers,
+  promptPasswordTwice,
+  setUserPassword,
+} = require("../lib/admin-users");
 const { deriveInstancePaths, parseAdminPort } = require("../lib/instance");
 const {
   readRegistryFile,
@@ -32,7 +37,8 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  npm run instance:create -- <name> <root> [--admin-port <port>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
+      "  npm run instance:create -- <name> <root> [--admin-port <port>] [--admin-user <username>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
+      "  npm run instance:install -- <name> [--registry <file>]",
       "  npm run instance:delete -- <name> [--registry <file>]",
       "  npm run instance:resolve -- <name> [--registry <file>]",
       "  npm run instance:list",
@@ -230,7 +236,7 @@ function ensureInstanceLayout(instanceRoot, serviceUser, serviceGroup) {
   return paths;
 }
 
-function createInstance(args) {
+async function createInstance(args) {
   requireRoot();
   requireCleanRepo();
   requireCommand("chown");
@@ -251,6 +257,7 @@ function createInstance(args) {
   const sessionSecret =
     String(options["session-secret"] || "").trim() ||
     crypto.randomBytes(32).toString("hex");
+  const adminUser = String(options["admin-user"] || "").trim() || "admin";
   const serviceUser = String(options["service-user"] || "").trim() || defaultServiceUser();
   const serviceGroup =
     String(options["service-group"] || "").trim() || serviceUser;
@@ -279,7 +286,17 @@ function createInstance(args) {
     fail(`Instance env file already exists: ${envFile}`);
   }
 
+  const adminPassword = await promptPasswordTwice({
+    password: `Password for admin user "${adminUser}": `,
+    confirmation: "Repeat password: ",
+  });
+
   const paths = ensureInstanceLayout(resolvedRoot, serviceUser, serviceGroup);
+  const adminUserResult = await setUserPassword(
+    paths.adminUserFile,
+    adminUser,
+    adminPassword
+  );
   const registered = registerInstance(registry.filePath, instanceName, {
     root: resolvedRoot,
     adminPort,
@@ -307,14 +324,56 @@ function createInstance(args) {
       `Env file: ${registered.envFile}`,
       `Service: ${registered.serviceName}`,
       `Nginx snippet: /etc/nginx/snippets/${registered.nginxSnippetName}`,
+      `Admin user: ${adminUserResult.userName}`,
       "",
       "Next steps:",
       `  cd ${shellQuote(REPO_DIR)}`,
-      `  INSTANCE_NAME=${shellQuote(registered.instanceName)} npm run admin:users -- set admin`,
-      `  systemctl enable --now ${shellQuote(registered.serviceName)}`,
       `  include /etc/nginx/snippets/${registered.nginxSnippetName};`,
-      "  nginx -t && systemctl reload nginx",
+      `  sudo npm run instance:install -- ${shellQuote(registered.instanceName)}`,
       `  npm run deploy -- ${shellQuote(registered.instanceName)}`,
+      "",
+    ].join("\n")
+  );
+}
+
+async function installInstance(args) {
+  requireRoot();
+  requireCleanRepo();
+  requireCommand("systemctl");
+  requireCommand("nginx");
+
+  const { positionals, options } = parseOptions(args);
+  const instanceName = positionals[0];
+  if (!instanceName) {
+    usage();
+    process.exit(1);
+  }
+
+  const runtime = resolveInstanceRuntime({
+    rootDir: REPO_DIR,
+    instanceName,
+    registryFile: options.registry,
+  });
+  const users = await listUsers(runtime.paths.adminUserFile);
+  if (users.length === 0) {
+    fail(
+      `Admin user file ${runtime.paths.adminUserFile} must contain at least one user before installation.`
+    );
+  }
+
+  runCommand("systemctl", ["daemon-reload"]);
+  runCommand("systemctl", ["enable", "--now", runtime.serviceName]);
+  runCommand("nginx", ["-t"]);
+  runCommand("systemctl", ["reload", "nginx"]);
+
+  process.stdout.write(
+    [
+      `Installed instance "${runtime.instanceName}".`,
+      `Service: ${runtime.serviceName}`,
+      `Nginx snippet: /etc/nginx/snippets/${runtime.nginxSnippetName}`,
+      "",
+      "Next step:",
+      `  npm run deploy -- ${shellQuote(runtime.instanceName)}`,
       "",
     ].join("\n")
   );
@@ -447,7 +506,7 @@ function listInstances(args) {
   }
 }
 
-function main() {
+async function main() {
   const [command, ...rest] = process.argv.slice(2);
 
   if (!command) {
@@ -455,28 +514,29 @@ function main() {
     process.exit(1);
   }
 
-  try {
-    if (command === "create") {
-      createInstance(rest);
-      return;
-    }
+  if (command === "create") {
+    await createInstance(rest);
+    return;
+  }
 
-    if (command === "resolve") {
-      resolveInstance(rest);
-      return;
-    }
+  if (command === "install") {
+    await installInstance(rest);
+    return;
+  }
 
-    if (command === "delete") {
-      deleteInstance(rest);
-      return;
-    }
+  if (command === "resolve") {
+    resolveInstance(rest);
+    return;
+  }
 
-    if (command === "list") {
-      listInstances(rest);
-      return;
-    }
-  } catch (error) {
-    fail(error.message);
+  if (command === "delete") {
+    deleteInstance(rest);
+    return;
+  }
+
+  if (command === "list") {
+    listInstances(rest);
+    return;
   }
 
   usage();
@@ -484,12 +544,15 @@ function main() {
 }
 
 if (require.main === module) {
-  main();
+  main().catch((error) => {
+    fail(error.message);
+  });
 }
 
 module.exports = {
   createInstance,
   deleteInstance,
+  installInstance,
   listInstances,
   resolveInstance,
 };

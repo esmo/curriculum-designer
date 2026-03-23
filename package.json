@@ -8,6 +8,7 @@
     "admin": "node server/admin-server.js",
     "admin:users": "node server/admin-users.js",
     "instance:create": "node ops/instances.js create",
+    "instance:install": "node ops/instances.js install",
     "instance:delete": "node ops/instances.js delete",
     "instance:list": "node ops/instances.js list",
     "instance:resolve": "node ops/instances.js resolve",

@@ -42,19 +42,7 @@ The create command:
 - creates the Nginx snippet `/etc/nginx/snippets/curriculum-designer-site-a.conf`
 - creates the instance directory structure at the exact root you passed
 - copies the bundled theme into `<root>/theme` if that directory is still empty
-
-Then create the first admin user:
-
-```bash
-cd /srv/curriculum-designer/repo
-INSTANCE_NAME=site-a npm run admin:users -- set admin
-```
-
-Enable the admin service:
-
-```bash
-sudo systemctl enable --now curriculum-designer-admin-site-a.service
-```
+- prompts for the password of the initial admin user `admin`
 
 Include the generated Nginx snippet inside the correct `server {}` block:
 
@@ -62,10 +50,11 @@ Include the generated Nginx snippet inside the correct `server {}` block:
 include /etc/nginx/snippets/curriculum-designer-site-a.conf;
 ```
 
-Reload Nginx:
+Install the service integration:
 
 ```bash
-sudo nginx -t && sudo systemctl reload nginx
+cd /srv/curriculum-designer/repo
+sudo npm run instance:install -- site-a
 ```
 
 Deploy the instance:
@@ -74,6 +63,32 @@ Deploy the instance:
 cd /srv/curriculum-designer/repo
 npm run deploy -- site-a
 ```
+
+## npm Interface
+
+Primary commands:
+
+- `sudo npm run instance:create -- <name> <root> [--admin-port <port>] [--admin-user <username>]`
+- `sudo npm run instance:install -- <name>`
+- `sudo npm run instance:delete -- <name>`
+- `npm run instance:list`
+- `npm run instance:resolve -- <name>`
+- `npm run deploy -- <name>`
+- `npm run admin:users -- list <instance-name>`
+- `npm run admin:users -- set <instance-name> <username>`
+- `npm run admin:users -- delete <instance-name> <username>`
+
+What they do:
+
+- `instance:create` creates the instance layout, registry entry, env file, systemd unit, Nginx snippet, and the initial admin user.
+- `instance:install` enables and starts the systemd unit, then validates and reloads Nginx.
+- `instance:delete` removes the registry entry and the generated system files for one instance.
+- `instance:list` lists all registered instances.
+- `instance:resolve` shows the resolved paths and port of one instance.
+- `deploy` builds and publishes one instance by name.
+- `admin:users` manages admin logins by instance name instead of by environment variable.
+
+Commands that modify `/etc`, `systemd`, or `nginx` must be run with `sudo`.
 
 ## Registry
 
@@ -190,15 +205,9 @@ Manage admin users by instance name:
 
 ```bash
 cd /srv/curriculum-designer/repo
-INSTANCE_NAME=site-a npm run admin:users -- set admin
-INSTANCE_NAME=site-a npm run admin:users -- list
-INSTANCE_NAME=site-a npm run admin:users -- delete admin
-```
-
-You can still pass a file path explicitly:
-
-```bash
-npm run admin:users -- set /srv/customer-a/curriculum-designer/admin-users.txt admin
+npm run admin:users -- set site-a admin
+npm run admin:users -- list site-a
+npm run admin:users -- delete site-a admin
 ```
 
 Delete one instance by name:
@@ -311,7 +320,7 @@ You only need to include that snippet in the right `server {}` block.
 ## Development
 
 There is no implicit default instance.
-Every build, admin start, and user-management command requires `INSTANCE_NAME`.
+Build and admin-start commands require `INSTANCE_NAME`.
 
 - `npm run build`
 - `npm run admin`
@@ -326,5 +335,3 @@ INSTANCE_NAME=site-a npm run admin
 ```
 
 If you do not want to use the global registry path during development, point `INSTANCE_REGISTRY_FILE` to a different registry file.
-
-Commands that create or delete system files under `/etc`, `systemd`, or `nginx` must be run with `sudo`. If you forget it, the command exits with a matching hint.
