@@ -18,7 +18,7 @@ const {
   registerInstance,
   resolveInstanceEnvFile,
   resolveInstanceRuntime,
-  resolveNginxSnippetName,
+  resolveNginxSiteName,
   resolveRegistryFile,
   resolveServiceName,
   unregisterInstance,
@@ -26,7 +26,8 @@ const {
 
 const REPO_DIR = path.resolve(__dirname, "..");
 const SYSTEMD_DIR = "/etc/systemd/system";
-const NGINX_DIR = "/etc/nginx/snippets";
+const NGINX_SITES_AVAILABLE_DIR = "/etc/nginx/sites-available";
+const NGINX_SITES_ENABLED_DIR = "/etc/nginx/sites-enabled";
 
 function fail(message) {
   process.stderr.write(`${message}\n`);
@@ -37,7 +38,7 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  npm run instance:create -- <name> <root> [--admin-port <port>] [--admin-user <username>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
+      "  npm run instance:create -- <name> <root> [--admin-port <port>] [--server-name <name>] [--admin-user <username>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
       "  npm run instance:install -- <name> [--registry <file>]",
       "  npm run instance:delete -- <name> [--registry <file>]",
       "  npm run instance:resolve -- <name> [--registry <file>]",
@@ -181,29 +182,69 @@ function writeSystemdUnit(serviceName, envFile, serviceUser, serviceGroup) {
   );
 }
 
-function writeNginxSnippet(snippetName, webRoot, adminPort) {
-  const target = path.join(NGINX_DIR, snippetName);
-  fs.mkdirSync(NGINX_DIR, { recursive: true });
+function nginxSiteAvailableFile(siteName) {
+  return path.join(NGINX_SITES_AVAILABLE_DIR, siteName);
+}
+
+function nginxSiteEnabledFile(siteName) {
+  return path.join(NGINX_SITES_ENABLED_DIR, siteName);
+}
+
+function writeNginxSite(siteName, serverName, webRoot, adminPort) {
+  const target = nginxSiteAvailableFile(siteName);
+  fs.mkdirSync(NGINX_SITES_AVAILABLE_DIR, { recursive: true });
   fs.writeFileSync(
     target,
     [
-      `root ${webRoot};`,
-      "index index.html;",
+      "server {",
+      "  listen 80;",
+      "  listen [::]:80;",
+      `  server_name ${serverName};`,
       "",
-      "location = /admin {",
-      "  return 301 /admin/;",
-      "}",
+      `  root ${webRoot};`,
+      "  index index.html;",
       "",
-      "location /admin/ {",
-      `  proxy_pass http://127.0.0.1:${adminPort}/admin/;`,
-      "  proxy_set_header Host $host;",
-      "  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
-      "  proxy_set_header X-Forwarded-Proto $scheme;",
+      "  location = /admin {",
+      "    return 301 /admin/;",
+      "  }",
+      "",
+      "  location /admin/ {",
+      `    proxy_pass http://127.0.0.1:${adminPort}/admin/;`,
+      "    proxy_set_header Host $host;",
+      "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+      "    proxy_set_header X-Forwarded-Proto $scheme;",
+      "  }",
       "}",
       "",
     ].join("\n"),
     "utf8"
   );
+}
+
+function enableNginxSite(siteName) {
+  const availableFile = nginxSiteAvailableFile(siteName);
+  const enabledFile = nginxSiteEnabledFile(siteName);
+
+  if (!fs.existsSync(availableFile)) {
+    throw new Error(`Nginx site file not found: ${availableFile}`);
+  }
+
+  fs.mkdirSync(NGINX_SITES_ENABLED_DIR, { recursive: true });
+
+  if (fs.existsSync(enabledFile)) {
+    const stat = fs.lstatSync(enabledFile);
+    if (stat.isSymbolicLink()) {
+      const linkTarget = fs.realpathSync(enabledFile);
+      if (linkTarget === fs.realpathSync(availableFile)) {
+        return enabledFile;
+      }
+    }
+
+    throw new Error(`Nginx enabled site already exists and is not managed: ${enabledFile}`);
+  }
+
+  fs.symlinkSync(availableFile, enabledFile);
+  return enabledFile;
 }
 
 function ensureInstanceLayout(instanceRoot, serviceUser, serviceGroup) {
@@ -254,6 +295,7 @@ async function createInstance(args) {
   const registryFile = resolveRegistryFile(options.registry);
   const resolvedRoot = path.resolve(instanceRoot);
   const adminPort = parseAdminPort(options["admin-port"], 8787);
+  const serverName = String(options["server-name"] || "").trim() || instanceName;
   const sessionSecret =
     String(options["session-secret"] || "").trim() ||
     crypto.randomBytes(32).toString("hex");
@@ -300,6 +342,7 @@ async function createInstance(args) {
   const registered = registerInstance(registry.filePath, instanceName, {
     root: resolvedRoot,
     adminPort,
+    serverName,
   });
 
   writeEnvFile(envFile, instanceName, registry.filePath, sessionSecret);
@@ -309,8 +352,9 @@ async function createInstance(args) {
     serviceUser,
     serviceGroup
   );
-  writeNginxSnippet(
-    registered.nginxSnippetName,
+  writeNginxSite(
+    registered.nginxSiteName,
+    registered.serverName,
     paths.webRoot,
     registered.adminPort
   );
@@ -323,14 +367,13 @@ async function createInstance(args) {
       `Root: ${registered.root}`,
       `Env file: ${registered.envFile}`,
       `Service: ${registered.serviceName}`,
-      `Nginx snippet: /etc/nginx/snippets/${registered.nginxSnippetName}`,
+      `Server name: ${registered.serverName}`,
+      `Nginx site: ${nginxSiteAvailableFile(registered.nginxSiteName)}`,
       `Admin user: ${adminUserResult.userName}`,
       "",
       "Next steps:",
       `  cd ${shellQuote(REPO_DIR)}`,
       `  npm run deploy -- ${shellQuote(registered.instanceName)}`,
-      "  Add this line to the correct nginx server block, then save the file:",
-      `    include /etc/nginx/snippets/${registered.nginxSnippetName};`,
       `  sudo npm run instance:install -- ${shellQuote(registered.instanceName)}`,
       "",
     ].join("\n")
@@ -363,6 +406,7 @@ async function installInstance(args) {
   }
 
   runCommand("systemctl", ["daemon-reload"]);
+  const enabledSiteFile = enableNginxSite(runtime.nginxSiteName);
   runCommand("systemctl", ["enable", "--now", runtime.serviceName]);
   runCommand("nginx", ["-t"]);
   runCommand("systemctl", ["reload", "nginx"]);
@@ -371,9 +415,10 @@ async function installInstance(args) {
     [
       `Installed instance "${runtime.instanceName}".`,
       `Service: ${runtime.serviceName}`,
-      `Nginx snippet: /etc/nginx/snippets/${runtime.nginxSnippetName}`,
+      `Nginx site: ${nginxSiteAvailableFile(runtime.nginxSiteName)}`,
+      `Enabled site: ${enabledSiteFile}`,
       "",
-      "Next step:",
+      "If this instance has not been built yet:",
       `  npm run deploy -- ${shellQuote(runtime.instanceName)}`,
       "",
     ].join("\n")
@@ -392,6 +437,7 @@ function removeFileIfExists(filePath) {
 function deleteInstance(args) {
   requireRoot();
   requireCommand("systemctl");
+  requireCommand("nginx");
 
   const { positionals, options } = parseOptions(args);
   const instanceName = positionals[0];
@@ -414,7 +460,8 @@ function deleteInstance(args) {
   for (const filePath of [
     runtime.envFile,
     path.join(SYSTEMD_DIR, runtime.serviceName),
-    path.join(NGINX_DIR, runtime.nginxSnippetName),
+    nginxSiteEnabledFile(runtime.nginxSiteName),
+    nginxSiteAvailableFile(runtime.nginxSiteName),
     runtime.paths.adminUserFile,
   ]) {
     if (removeFileIfExists(filePath)) {
@@ -426,6 +473,8 @@ function deleteInstance(args) {
 
   unregisterInstance(runtime.registryFile, runtime.instanceName);
   runCommand("systemctl", ["daemon-reload"]);
+  runCommand("nginx", ["-t"]);
+  runCommand("systemctl", ["reload", "nginx"]);
 
   process.stdout.write(
     [
@@ -438,9 +487,6 @@ function deleteInstance(args) {
       "",
       "Missing files:",
       ...(missingFiles.length > 0 ? missingFiles.map((filePath) => `  ${filePath}`) : ["  none"]),
-      "",
-      "Before reloading nginx, remove any matching include line from your server config:",
-      `  include /etc/nginx/snippets/${runtime.nginxSnippetName};`,
       "",
     ].join("\n")
   );
@@ -470,10 +516,19 @@ function resolveInstance(args) {
       WEB_ROOT: runtime.paths.webRoot,
       ADMIN_RUNTIME_ROOT: runtime.paths.adminRuntimeRoot,
       ADMIN_USER_FILE: runtime.paths.adminUserFile,
+      SERVER_NAME: runtime.serverName,
       SERVICE_NAME:
         runtime.serviceName || resolveServiceName(runtime.instanceName),
-      NGINX_SNIPPET_NAME:
-        runtime.nginxSnippetName || resolveNginxSnippetName(runtime.instanceName),
+      NGINX_SITE_NAME:
+        runtime.nginxSiteName || resolveNginxSiteName(runtime.instanceName),
+      NGINX_SITE_FILE:
+        nginxSiteAvailableFile(
+          runtime.nginxSiteName || resolveNginxSiteName(runtime.instanceName)
+        ),
+      NGINX_ENABLED_SITE_FILE:
+        nginxSiteEnabledFile(
+          runtime.nginxSiteName || resolveNginxSiteName(runtime.instanceName)
+        ),
     };
 
     for (const [name, value] of Object.entries(values)) {
@@ -490,6 +545,7 @@ function resolveInstance(args) {
         envFile: runtime.envFile || resolveInstanceEnvFile(runtime.registryFile, runtime.instanceName),
         root: runtime.paths.instanceRoot,
         adminPort: runtime.adminPort,
+        serverName: runtime.serverName,
       },
       null,
       2

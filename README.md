@@ -30,7 +30,7 @@ Prerequisites on the server:
 
 ```bash
 cd /srv/curriculum-designer/repo
-sudo npm run instance:create -- site-a /srv/customer-a/curriculum-designer --admin-port 8787
+sudo npm run instance:create -- site-a /srv/customer-a/curriculum-designer --admin-port 8787 --server-name site-a.example.org
 ```
 
 The create command:
@@ -39,16 +39,10 @@ The create command:
 - registers `site-a` with its explicit root path
 - creates `/etc/curriculum-designer/instances/site-a.env`
 - creates the systemd unit `curriculum-designer-admin-site-a.service`
-- creates the Nginx snippet `/etc/nginx/snippets/curriculum-designer-site-a.conf`
+- creates the Nginx site file `/etc/nginx/sites-available/curriculum-designer-site-a.conf`
 - creates the instance directory structure at the exact root you passed
 - copies the bundled theme into `<root>/theme` if that directory is still empty
 - prompts for the password of the initial admin user `admin`
-
-Include the generated Nginx snippet inside the correct `server {}` block:
-
-```nginx
-include /etc/nginx/snippets/curriculum-designer-site-a.conf;
-```
 
 Deploy the instance:
 
@@ -68,7 +62,7 @@ sudo npm run instance:install -- site-a
 
 Primary commands:
 
-- `sudo npm run instance:create -- <name> <root> [--admin-port <port>] [--admin-user <username>]`
+- `sudo npm run instance:create -- <name> <root> [--admin-port <port>] [--server-name <name>] [--admin-user <username>]`
 - `sudo npm run instance:install -- <name>`
 - `sudo npm run instance:delete -- <name>`
 - `npm run instance:list`
@@ -80,8 +74,8 @@ Primary commands:
 
 What they do:
 
-- `instance:create` creates the instance layout, registry entry, env file, systemd unit, Nginx snippet, and the initial admin user.
-- `instance:install` enables and starts the systemd unit, then validates and reloads Nginx.
+- `instance:create` creates the instance layout, registry entry, env file, systemd unit, Nginx site file, and the initial admin user.
+- `instance:install` enables the generated Nginx site, starts the systemd unit, then validates and reloads Nginx.
 - `instance:delete` removes the registry entry and the generated system files for one instance.
 - `instance:list` lists all registered instances.
 - `instance:resolve` shows the resolved paths and port of one instance.
@@ -89,6 +83,7 @@ What they do:
 - `admin:users` manages admin logins by instance name instead of by environment variable.
 
 Commands that modify `/etc`, `systemd`, or `nginx` must be run with `sudo`.
+If `--server-name` is omitted, the instance name is used as the Nginx `server_name`.
 
 ## Registry
 
@@ -105,11 +100,13 @@ Example:
   "instances": {
     "site-a": {
       "root": "/srv/customer-a/curriculum-designer",
-      "adminPort": 8787
+      "adminPort": 8787,
+      "serverName": "site-a.example.org"
     },
     "site-b": {
       "root": "/var/www/customer-b/curriculum-designer",
-      "adminPort": 8788
+      "adminPort": 8788,
+      "serverName": "site-b.example.org www.site-b.example.org"
     }
   }
 }
@@ -121,6 +118,7 @@ Important points:
 - each instance can use any root path
 - instances do not need to live under one shared `instancesRoot`
 - the registry stores non-secret operational data only
+- `serverName` is written directly into the generated Nginx site as `server_name`
 
 List registered instances:
 
@@ -222,10 +220,11 @@ This removes:
 - the registry entry in `/etc/curriculum-designer/instances.json`
 - `/etc/curriculum-designer/instances/site-a.env`
 - `/etc/systemd/system/curriculum-designer-admin-site-a.service`
-- `/etc/nginx/snippets/curriculum-designer-site-a.conf`
+- `/etc/nginx/sites-available/curriculum-designer-site-a.conf`
+- `/etc/nginx/sites-enabled/curriculum-designer-site-a.conf`
 - `<instance-root>/admin-users.txt`
 
-The instance root itself stays in place. Remove the matching `include /etc/nginx/snippets/curriculum-designer-site-a.conf;` line from your Nginx config before the next reload.
+The instance root itself stays in place.
 
 ## Multiple Instances
 
@@ -309,13 +308,19 @@ Supported field inputs:
 
 ## Nginx
 
-The generated snippet already contains:
+The generated site file contains:
 
 - `root <instance-root>/web`
 - redirect from `/admin` to `/admin/`
 - reverse proxy from `/admin/` to `127.0.0.1:<adminPort>`
+- `server_name <serverName>`
 
-You only need to include that snippet in the right `server {}` block.
+Files:
+
+- available site: `/etc/nginx/sites-available/curriculum-designer-<instance>.conf`
+- enabled site: `/etc/nginx/sites-enabled/curriculum-designer-<instance>.conf`
+
+`npm run instance:install -- <instance>` creates the symlink in `sites-enabled`, validates the Nginx config, and reloads Nginx.
 
 ## Development
 
