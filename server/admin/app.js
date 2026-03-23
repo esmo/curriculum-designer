@@ -43,6 +43,8 @@ function createAdminApp(config) {
 
   const buildService = createBuildService({
     rootDir: config.rootDir,
+    instanceName: config.instanceName,
+    registryFile: config.registryFile,
     instanceRoot: config.instanceRoot,
     webRoot: config.webRoot,
     buildRoot: config.buildRoot,
@@ -89,6 +91,8 @@ function createAdminApp(config) {
     }
 
     app.log.info({
+      instanceName: config.instanceName || null,
+      registryFile: config.registryFile || null,
       adminUrl: `http://${config.adminHost}:${config.adminPort}${config.adminBasePath}/`,
       instanceRoot: config.instanceRoot,
       adminUserFile: config.adminUserFile || null,

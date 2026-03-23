@@ -6,9 +6,8 @@ const {
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_SECURE,
   SESSION_TTL_SECONDS,
-  deriveInstancePaths,
-  parseAdminPort,
 } = require("../../lib/instance");
+const { resolveInstanceRuntime } = require("../../lib/instance-registry");
 const { sanitizeSingleLine } = require("./lib/content-utils");
 
 function resolveSessionSecret(value) {
@@ -32,8 +31,14 @@ function resolveSessionSecret(value) {
 
 function loadConfig(env = process.env) {
   const rootDir = path.resolve(__dirname, "..", "..");
-  const instance = deriveInstancePaths(rootDir, env.INSTANCE_ROOT);
-  const schemaRoot = path.join(instance.themeRoot, "admin", "schemas");
+  const runtime = resolveInstanceRuntime({
+    rootDir,
+    instanceRoot: env.INSTANCE_ROOT,
+    instanceName: env.INSTANCE_NAME,
+    registryFile: env.INSTANCE_REGISTRY_FILE,
+    adminPort: env.ADMIN_PORT,
+  });
+  const schemaRoot = path.join(runtime.paths.themeRoot, "admin", "schemas");
   const {
     sessionSecret,
     usingDefaultSessionSecret,
@@ -41,19 +46,21 @@ function loadConfig(env = process.env) {
 
   return {
     rootDir,
-    instanceRoot: instance.instanceRoot,
-    themeRoot: instance.themeRoot,
-    contentRoot: instance.contentRoot,
-    webRoot: instance.webRoot,
-    buildRoot: instance.buildRoot,
-    adminRuntimeRoot: instance.adminRuntimeRoot,
-    adminBasePath: instance.adminBasePath,
+    instanceName: runtime.instanceName,
+    registryFile: runtime.registryFile,
+    instanceRoot: runtime.paths.instanceRoot,
+    themeRoot: runtime.paths.themeRoot,
+    contentRoot: runtime.paths.contentRoot,
+    webRoot: runtime.paths.webRoot,
+    buildRoot: runtime.paths.buildRoot,
+    adminRuntimeRoot: runtime.paths.adminRuntimeRoot,
+    adminBasePath: runtime.paths.adminBasePath,
     schemaRoot,
     npmBinary: process.platform === "win32" ? "npm.cmd" : "npm",
     rsyncBinary: "rsync",
-    adminPort: parseAdminPort(env.ADMIN_PORT),
+    adminPort: runtime.adminPort,
     adminHost: ADMIN_HOST,
-    adminUserFile: sanitizeSingleLine(instance.adminUserFile),
+    adminUserFile: sanitizeSingleLine(runtime.paths.adminUserFile),
     sessionSecret,
     usingDefaultSessionSecret,
     sessionCookieName: SESSION_COOKIE_NAME,

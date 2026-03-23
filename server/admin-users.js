@@ -3,7 +3,7 @@
 const path = require("node:path");
 const readline = require("node:readline");
 
-const { deriveInstancePaths } = require("../lib/instance");
+const { resolveInstanceRuntime } = require("../lib/instance-registry");
 const { hashPassword } = require("./admin/password-hash");
 const {
   normalizeUserName,
@@ -33,7 +33,12 @@ function requiredArg(args, index, label) {
 
 function defaultUserFile() {
   const rootDir = path.resolve(__dirname, "..");
-  return deriveInstancePaths(rootDir, process.env.INSTANCE_ROOT).adminUserFile;
+  return resolveInstanceRuntime({
+    rootDir,
+    instanceRoot: process.env.INSTANCE_ROOT,
+    instanceName: process.env.INSTANCE_NAME,
+    registryFile: process.env.INSTANCE_REGISTRY_FILE,
+  }).paths.adminUserFile;
 }
 
 function resolveListFilePath(args) {

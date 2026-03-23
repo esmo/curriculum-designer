@@ -5,6 +5,8 @@ const { spawn } = require("node:child_process");
 function createBuildService(input) {
   const {
     rootDir,
+    instanceName,
+    registryFile,
     instanceRoot,
     webRoot,
     buildRoot,
@@ -73,7 +75,10 @@ function createBuildService(input) {
       const startedAt = new Date().toISOString();
       const buildEnv = {
         ...process.env,
-        INSTANCE_ROOT: instanceRoot,
+        ...(registryFile ? { INSTANCE_REGISTRY_FILE: registryFile } : {}),
+        ...(instanceName
+          ? { INSTANCE_NAME: instanceName }
+          : { INSTANCE_ROOT: instanceRoot }),
       };
       const child = spawn(npmBinary, ["run", "build"], {
         cwd: rootDir,

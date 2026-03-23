@@ -4,10 +4,17 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { deriveInstancePaths } = require("../lib/instance");
+const { resolveInstanceRuntime } = require("../lib/instance-registry");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const INSTANCE = deriveInstancePaths(ROOT_DIR, process.env.INSTANCE_ROOT);
+const RUNTIME = resolveInstanceRuntime({
+  rootDir: ROOT_DIR,
+  instanceRoot: process.env.INSTANCE_ROOT,
+  instanceName: process.env.INSTANCE_NAME,
+  registryFile: process.env.INSTANCE_REGISTRY_FILE,
+  adminPort: process.env.ADMIN_PORT,
+});
+const INSTANCE = RUNTIME.paths;
 const THEME_ROOT = INSTANCE.themeRoot;
 const CONTENT_ROOT = INSTANCE.contentRoot;
 const OUTPUT_DIR = INSTANCE.buildRoot;
@@ -100,6 +107,9 @@ function syncAdminFrontend() {
 function main() {
   const { inputDir, cleanup } = prepareInputDirectory();
 
+  if (RUNTIME.instanceName) {
+    process.stdout.write(`Using instance name: ${RUNTIME.instanceName}\n`);
+  }
   process.stdout.write(`Using instance root: ${INSTANCE.instanceRoot}\n`);
   process.stdout.write(`Using theme root: ${THEME_ROOT}\n`);
   process.stdout.write(`Using content root: ${CONTENT_ROOT}\n`);
