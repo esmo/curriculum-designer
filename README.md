@@ -29,7 +29,8 @@ Prerequisites on the server:
 3. Create one instance with an explicit root path.
 
 ```bash
-sudo node /srv/curriculum-designer/repo/ops/instances.js create site-a /srv/customer-a/curriculum-designer --admin-port 8787
+cd /srv/curriculum-designer/repo
+sudo npm run instance:create -- site-a /srv/customer-a/curriculum-designer --admin-port 8787
 ```
 
 The create command:
@@ -70,7 +71,8 @@ sudo nginx -t && sudo systemctl reload nginx
 Deploy the instance:
 
 ```bash
-/srv/curriculum-designer/repo/ops/deploy-pull.sh site-a
+cd /srv/curriculum-designer/repo
+npm run deploy -- site-a
 ```
 
 ## Registry
@@ -109,14 +111,14 @@ List registered instances:
 
 ```bash
 cd /srv/curriculum-designer/repo
-npm run instances -- list
+npm run instance:list
 ```
 
 Resolve one instance:
 
 ```bash
 cd /srv/curriculum-designer/repo
-npm run instances -- resolve site-a
+npm run instance:resolve -- site-a
 ```
 
 ## Runtime Config
@@ -171,7 +173,8 @@ The bundled default theme typically uses `content/lessons`, `content/tasks`, `co
 Deploy one instance by name:
 
 ```bash
-/srv/curriculum-designer/repo/ops/deploy-pull.sh site-a
+cd /srv/curriculum-designer/repo
+npm run deploy -- site-a
 ```
 
 The deploy script always:
@@ -201,7 +204,8 @@ npm run admin:users -- set /srv/customer-a/curriculum-designer/admin-users.txt a
 Delete one instance by name:
 
 ```bash
-sudo node /srv/curriculum-designer/repo/ops/instances.js delete site-a
+cd /srv/curriculum-designer/repo
+sudo npm run instance:delete -- site-a
 ```
 
 This removes:
@@ -322,3 +326,5 @@ INSTANCE_NAME=site-a npm run admin
 ```
 
 If you do not want to use the global registry path during development, point `INSTANCE_REGISTRY_FILE` to a different registry file.
+
+Commands that create or delete system files under `/etc`, `systemd`, or `nginx` must be run with `sudo`. If you forget it, the command exits with a matching hint.

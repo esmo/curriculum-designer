@@ -32,10 +32,11 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  node ops/instances.js create <name> <root> [--admin-port <port>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
-      "  node ops/instances.js delete <name> [--registry <file>]",
-      "  node ops/instances.js resolve <name> [--shell] [--registry <file>]",
-      "  node ops/instances.js list [--registry <file>]",
+      "  npm run instance:create -- <name> <root> [--admin-port <port>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
+      "  npm run instance:delete -- <name> [--registry <file>]",
+      "  npm run instance:resolve -- <name> [--registry <file>]",
+      "  npm run instance:list",
+      "  npm run instances -- resolve <name> [--shell] [--registry <file>]",
       "",
     ].join("\n")
   );
@@ -313,9 +314,7 @@ function createInstance(args) {
       `  systemctl enable --now ${shellQuote(registered.serviceName)}`,
       `  include /etc/nginx/snippets/${registered.nginxSnippetName};`,
       "  nginx -t && systemctl reload nginx",
-      `  ${shellQuote(path.join(REPO_DIR, "ops", "deploy-pull.sh"))} ${shellQuote(
-        registered.instanceName
-      )}`,
+      `  npm run deploy -- ${shellQuote(registered.instanceName)}`,
       "",
     ].join("\n")
   );

@@ -29,7 +29,7 @@ resolve_target() {
   local input="${1:-}"
   local -a resolve_args
 
-  [ -n "$input" ] || fail "Usage: $0 <instance-name>"
+  [ -n "$input" ] || fail "Usage: npm run deploy -- <instance-name>"
 
   resolve_args=(resolve --shell "$input")
   if [ -n "${INSTANCE_REGISTRY_FILE:-}" ]; then

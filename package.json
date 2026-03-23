@@ -9,7 +9,10 @@
     "admin:users": "node server/admin-users.js",
     "instance:create": "node ops/instances.js create",
     "instance:delete": "node ops/instances.js delete",
+    "instance:list": "node ops/instances.js list",
+    "instance:resolve": "node ops/instances.js resolve",
     "instances": "node ops/instances.js",
+    "deploy": "bash ops/deploy-pull.sh",
     "start": "npm-run-all clean build --parallel watch serve",
     "start:admin": "npm-run-all clean build --parallel watch serve admin"
   },
