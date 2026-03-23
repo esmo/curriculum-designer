@@ -16,6 +16,7 @@ const {
   resolveNginxSnippetName,
   resolveRegistryFile,
   resolveServiceName,
+  unregisterInstance,
 } = require("../lib/instance-registry");
 
 const REPO_DIR = path.resolve(__dirname, "..");
@@ -32,6 +33,7 @@ function usage() {
     [
       "Usage:",
       "  node ops/instances.js create <name> <root> [--admin-port <port>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
+      "  node ops/instances.js delete <name> [--registry <file>]",
       "  node ops/instances.js resolve <name> [--shell] [--registry <file>]",
       "  node ops/instances.js list [--registry <file>]",
       "",
@@ -81,6 +83,19 @@ function runCommand(command, args) {
   if (typeof result.status === "number" && result.status !== 0) {
     throw new Error(`${command} exited with code ${result.status}.`);
   }
+}
+
+function runCommandQuiet(command, args) {
+  const result = spawnSync(command, args, {
+    stdio: "pipe",
+    encoding: "utf8",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return typeof result.status === "number" ? result.status : 0;
 }
 
 function parseOptions(args) {
@@ -306,6 +321,72 @@ function createInstance(args) {
   );
 }
 
+function removeFileIfExists(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
+
+  fs.rmSync(filePath, { force: true });
+  return true;
+}
+
+function deleteInstance(args) {
+  requireRoot();
+  requireCommand("systemctl");
+
+  const { positionals, options } = parseOptions(args);
+  const instanceName = positionals[0];
+  if (!instanceName) {
+    usage();
+    process.exit(1);
+  }
+
+  const runtime = resolveInstanceRuntime({
+    rootDir: REPO_DIR,
+    instanceName,
+    registryFile: options.registry,
+  });
+
+  const removedFiles = [];
+  const missingFiles = [];
+
+  runCommandQuiet("systemctl", ["disable", "--now", runtime.serviceName]);
+
+  for (const filePath of [
+    runtime.envFile,
+    path.join(SYSTEMD_DIR, runtime.serviceName),
+    path.join(NGINX_DIR, runtime.nginxSnippetName),
+    runtime.paths.adminUserFile,
+  ]) {
+    if (removeFileIfExists(filePath)) {
+      removedFiles.push(filePath);
+    } else {
+      missingFiles.push(filePath);
+    }
+  }
+
+  unregisterInstance(runtime.registryFile, runtime.instanceName);
+  runCommand("systemctl", ["daemon-reload"]);
+
+  process.stdout.write(
+    [
+      `Deleted instance "${runtime.instanceName}".`,
+      `Registry: ${runtime.registryFile}`,
+      `Root kept: ${runtime.paths.instanceRoot}`,
+      "",
+      "Removed files:",
+      ...(removedFiles.length > 0 ? removedFiles.map((filePath) => `  ${filePath}`) : ["  none"]),
+      "",
+      "Missing files:",
+      ...(missingFiles.length > 0 ? missingFiles.map((filePath) => `  ${filePath}`) : ["  none"]),
+      "",
+      "Before reloading nginx, remove any matching include line from your server config:",
+      `  include /etc/nginx/snippets/${runtime.nginxSnippetName};`,
+      "",
+    ].join("\n")
+  );
+}
+
 function resolveInstance(args) {
   const { positionals, options } = parseOptions(args);
   const instanceName = positionals[0];
@@ -386,6 +467,11 @@ function main() {
       return;
     }
 
+    if (command === "delete") {
+      deleteInstance(rest);
+      return;
+    }
+
     if (command === "list") {
       listInstances(rest);
       return;
@@ -404,6 +490,7 @@ if (require.main === module) {
 
 module.exports = {
   createInstance,
+  deleteInstance,
   listInstances,
   resolveInstance,
 };

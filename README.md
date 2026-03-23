@@ -29,10 +29,7 @@ Prerequisites on the server:
 3. Create one instance with an explicit root path.
 
 ```bash
-sudo /srv/curriculum-designer/repo/ops/instances.js create \
-  site-a \
-  /srv/customer-a/curriculum-designer \
-  --admin-port 8787
+sudo node /srv/curriculum-designer/repo/ops/instances.js create site-a /srv/customer-a/curriculum-designer --admin-port 8787
 ```
 
 The create command:
@@ -200,6 +197,22 @@ You can still pass a file path explicitly:
 ```bash
 npm run admin:users -- set /srv/customer-a/curriculum-designer/admin-users.txt admin
 ```
+
+Delete one instance by name:
+
+```bash
+sudo node /srv/curriculum-designer/repo/ops/instances.js delete site-a
+```
+
+This removes:
+
+- the registry entry in `/etc/curriculum-designer/instances.json`
+- `/etc/curriculum-designer/instances/site-a.env`
+- `/etc/systemd/system/curriculum-designer-admin-site-a.service`
+- `/etc/nginx/snippets/curriculum-designer-site-a.conf`
+- `<instance-root>/admin-users.txt`
+
+The instance root itself stays in place. Remove the matching `include /etc/nginx/snippets/curriculum-designer-site-a.conf;` line from your Nginx config before the next reload.
 
 ## Multiple Instances
 

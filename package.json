@@ -8,6 +8,7 @@
     "admin": "node server/admin-server.js",
     "admin:users": "node server/admin-users.js",
     "instance:create": "node ops/instances.js create",
+    "instance:delete": "node ops/instances.js delete",
     "instances": "node ops/instances.js",
     "start": "npm-run-all clean build --parallel watch serve",
     "start:admin": "npm-run-all clean build --parallel watch serve admin"
