@@ -50,18 +50,18 @@ Include the generated Nginx snippet inside the correct `server {}` block:
 include /etc/nginx/snippets/curriculum-designer-site-a.conf;
 ```
 
-Install the service integration:
-
-```bash
-cd /srv/curriculum-designer/repo
-sudo npm run instance:install -- site-a
-```
-
 Deploy the instance:
 
 ```bash
 cd /srv/curriculum-designer/repo
 npm run deploy -- site-a
+```
+
+Install the service integration:
+
+```bash
+cd /srv/curriculum-designer/repo
+sudo npm run instance:install -- site-a
 ```
 
 ## npm Interface

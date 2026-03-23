@@ -328,9 +328,10 @@ async function createInstance(args) {
       "",
       "Next steps:",
       `  cd ${shellQuote(REPO_DIR)}`,
-      `  include /etc/nginx/snippets/${registered.nginxSnippetName};`,
-      `  sudo npm run instance:install -- ${shellQuote(registered.instanceName)}`,
       `  npm run deploy -- ${shellQuote(registered.instanceName)}`,
+      "  Add this line to the correct nginx server block, then save the file:",
+      `    include /etc/nginx/snippets/${registered.nginxSnippetName};`,
+      `  sudo npm run instance:install -- ${shellQuote(registered.instanceName)}`,
       "",
     ].join("\n")
   );
