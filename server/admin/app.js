@@ -45,7 +45,6 @@ function createAdminApp(config) {
     rootDir: config.rootDir,
     instanceName: config.instanceName,
     registryFile: config.registryFile,
-    instanceRoot: config.instanceRoot,
     webRoot: config.webRoot,
     buildRoot: config.buildRoot,
     npmBinary: config.npmBinary,

@@ -7,7 +7,6 @@ function createBuildService(input) {
     rootDir,
     instanceName,
     registryFile,
-    instanceRoot,
     webRoot,
     buildRoot,
     npmBinary,
@@ -76,9 +75,7 @@ function createBuildService(input) {
       const buildEnv = {
         ...process.env,
         ...(registryFile ? { INSTANCE_REGISTRY_FILE: registryFile } : {}),
-        ...(instanceName
-          ? { INSTANCE_NAME: instanceName }
-          : { INSTANCE_ROOT: instanceRoot }),
+        INSTANCE_NAME: instanceName,
       };
       const child = spawn(npmBinary, ["run", "build"], {
         cwd: rootDir,

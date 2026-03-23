@@ -9,7 +9,6 @@ const { resolveInstanceRuntime } = require("../lib/instance-registry");
 const ROOT_DIR = path.resolve(__dirname, "..");
 const RUNTIME = resolveInstanceRuntime({
   rootDir: ROOT_DIR,
-  instanceRoot: process.env.INSTANCE_ROOT,
   instanceName: process.env.INSTANCE_NAME,
   registryFile: process.env.INSTANCE_REGISTRY_FILE,
   adminPort: process.env.ADMIN_PORT,

@@ -11,7 +11,7 @@ The repository is installed only once. Each website runs as its own named instan
 - its own published web directory
 - its own admin user file
 
-Production instances are resolved by name through a central registry file.
+Instances are resolved by name through a central registry file.
 
 ## Quick Start
 
@@ -27,15 +27,6 @@ Prerequisites on the server:
 1. Clone the repository, for example to `/srv/curriculum-designer/repo`.
 2. Configure read access for `git pull` on that server clone.
 3. Create one instance with an explicit root path.
-
-```bash
-sudo /srv/curriculum-designer/repo/ops/install-server.sh \
-  site-a \
-  /srv/customer-a/curriculum-designer \
-  --admin-port 8787
-```
-
-`ops/install-server.sh` is a thin wrapper around:
 
 ```bash
 sudo /srv/curriculum-designer/repo/ops/instances.js create \
@@ -133,7 +124,7 @@ npm run instances -- resolve site-a
 
 ## Runtime Config
 
-Production runtime now uses two layers:
+Runtime uses two layers:
 
 1. the registry file for `root` and `adminPort`
 2. one small env file per instance for secrets
@@ -148,6 +139,7 @@ Example:
 
 ```bash
 INSTANCE_NAME=site-a
+INSTANCE_REGISTRY_FILE=/etc/curriculum-designer/instances.json
 SESSION_SECRET=replace-this-with-a-long-random-secret
 ```
 
@@ -157,8 +149,6 @@ What is fixed on purpose:
 - admin URL path: `/admin`
 - admin bind host: `127.0.0.1`
 - session cookie name and TTL
-
-`INSTANCE_ROOT` still exists as a direct fallback for local development and one-off builds, but named instances should use the registry.
 
 ## Instance Layout
 
@@ -303,7 +293,8 @@ You only need to include that snippet in the right `server {}` block.
 
 ## Development
 
-Without `INSTANCE_NAME` or `INSTANCE_ROOT`, local commands use the repository root as the default instance.
+There is no implicit default instance.
+Every build, admin start, and user-management command requires `INSTANCE_NAME`.
 
 - `npm run build`
 - `npm run admin`
@@ -317,11 +308,4 @@ INSTANCE_NAME=site-a npm run build
 INSTANCE_NAME=site-a npm run admin
 ```
 
-For one-off local work without registry:
-
-```bash
-INSTANCE_ROOT=/path/to/instance npm run build
-INSTANCE_ROOT=/path/to/instance npm run admin
-```
-
-The repository `theme/` and `content/` directories are therefore local defaults. Production instances should use named registry entries with their own root paths.
+If you do not want to use the global registry path during development, point `INSTANCE_REGISTRY_FILE` to a different registry file.

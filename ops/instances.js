@@ -14,7 +14,6 @@ const {
   resolveInstanceEnvFile,
   resolveInstanceRuntime,
   resolveNginxSnippetName,
-  resolveRegisteredInstance,
   resolveRegistryFile,
   resolveServiceName,
 } = require("../lib/instance-registry");
@@ -117,12 +116,13 @@ function parseOptions(args) {
   };
 }
 
-function writeEnvFile(envFile, instanceName, sessionSecret) {
+function writeEnvFile(envFile, instanceName, registryFile, sessionSecret) {
   fs.mkdirSync(path.dirname(envFile), { recursive: true });
   fs.writeFileSync(
     envFile,
     [
       `INSTANCE_NAME=${shellQuote(instanceName)}`,
+      `INSTANCE_REGISTRY_FILE=${shellQuote(resolveRegistryFile(registryFile))}`,
       `SESSION_SECRET=${shellQuote(sessionSecret)}`,
       "",
     ].join("\n"),
@@ -269,7 +269,7 @@ function createInstance(args) {
     adminPort,
   });
 
-  writeEnvFile(envFile, instanceName, sessionSecret);
+  writeEnvFile(envFile, instanceName, registry.filePath, sessionSecret);
   writeSystemdUnit(
     registered.serviceName,
     envFile,
@@ -323,7 +323,6 @@ function resolveInstance(args) {
   if (options.shell) {
     const values = {
       INSTANCE_NAME: runtime.instanceName,
-      INSTANCE_ROOT: runtime.paths.instanceRoot,
       INSTANCE_REGISTRY_FILE: runtime.registryFile,
       INSTANCE_ENV_FILE: runtime.envFile || resolveInstanceEnvFile(runtime.registryFile, runtime.instanceName),
       ADMIN_PORT: String(runtime.adminPort),

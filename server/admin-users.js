@@ -35,7 +35,6 @@ function defaultUserFile() {
   const rootDir = path.resolve(__dirname, "..");
   return resolveInstanceRuntime({
     rootDir,
-    instanceRoot: process.env.INSTANCE_ROOT,
     instanceName: process.env.INSTANCE_NAME,
     registryFile: process.env.INSTANCE_REGISTRY_FILE,
   }).paths.adminUserFile;

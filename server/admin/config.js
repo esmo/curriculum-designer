@@ -33,7 +33,6 @@ function loadConfig(env = process.env) {
   const rootDir = path.resolve(__dirname, "..", "..");
   const runtime = resolveInstanceRuntime({
     rootDir,
-    instanceRoot: env.INSTANCE_ROOT,
     instanceName: env.INSTANCE_NAME,
     registryFile: env.INSTANCE_REGISTRY_FILE,
     adminPort: env.ADMIN_PORT,

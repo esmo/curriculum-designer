@@ -3,15 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-DEFAULT_INSTANCE_NAME="default"
 
 INSTANCE_NAME=""
-INSTANCE_ROOT=""
 BUILD_ROOT=""
 WEB_ROOT=""
 INSTANCE_ENV_FILE=""
 SERVICE_NAME=""
-ADMIN_PORT=""
 
 log() {
   printf '[deploy] %s\n' "$1"
@@ -29,8 +26,10 @@ require_cmd() {
 }
 
 resolve_target() {
-  local input="${1:-$DEFAULT_INSTANCE_NAME}"
+  local input="${1:-}"
   local -a resolve_args
+
+  [ -n "$input" ] || fail "Usage: $0 <instance-name>"
 
   resolve_args=(resolve --shell "$input")
   if [ -n "${INSTANCE_REGISTRY_FILE:-}" ]; then
@@ -103,7 +102,7 @@ main() {
   require_cmd npm
   require_cmd rsync
 
-  resolve_target "${1:-$DEFAULT_INSTANCE_NAME}"
+  resolve_target "${1:-}"
   update_repository
   build_and_publish
   restart_service
