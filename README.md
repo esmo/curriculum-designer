@@ -42,6 +42,7 @@ The create command:
 - creates the Nginx site file `/etc/nginx/sites-available/curriculum-designer-site-a.conf`
 - creates the instance directory structure at the exact root you passed
 - copies the bundled theme into `<root>/theme` if that directory is still empty
+- creates `<root>/content` only when you use the default local content path
 - prompts for the password of the initial admin user `admin`
 
 Deploy the instance:
@@ -62,7 +63,7 @@ sudo npm run instance:install -- site-a
 
 Primary commands:
 
-- `sudo npm run instance:create -- <name> <root> --server-name <name> [--ssl-certificate <file>] [--ssl-certificate-key <file>] [--admin-port <port>] [--admin-user <username>]`
+- `sudo npm run instance:create -- <name> <root> --server-name <name> [--content-root <path>] [--ssl-certificate <file>] [--ssl-certificate-key <file>] [--admin-port <port>] [--admin-user <username>]`
 - `sudo npm run instance:install -- <name>`
 - `sudo npm run instance:delete -- <name>`
 - `npm run instance:list`
@@ -84,6 +85,7 @@ What they do:
 
 Commands that modify `/etc`, `systemd`, or `nginx` must be run with `sudo`.
 For HTTPS pass both `--ssl-certificate` and `--ssl-certificate-key`. If both are omitted, the generated site is HTTP-only.
+If `--content-root` is omitted, the default content path is `<root>/content`.
 
 ## Registry
 
@@ -100,6 +102,7 @@ Example:
   "instances": {
     "site-a": {
       "root": "/srv/customer-a/curriculum-designer",
+      "contentRoot": "/srv/customer-a/content-repo/content",
       "adminPort": 8787,
       "serverName": "site-a.example.org",
       "sslCertificate": "/etc/letsencrypt/live/site-a.example.org/fullchain.pem",
@@ -120,6 +123,7 @@ Important points:
 
 - the instance name is the primary key
 - each instance can use any root path
+- `contentRoot` can point to an external repository checkout
 - instances do not need to live under one shared `instancesRoot`
 - the registry stores non-secret operational data only
 - `serverName` defines the public host names of the generated Nginx site
@@ -143,7 +147,7 @@ npm run instance:resolve -- site-a
 
 Runtime uses two layers:
 
-1. the registry file for `root`, `adminPort`, `serverName`, and optional TLS file paths
+1. the registry file for `root`, `contentRoot`, `adminPort`, `serverName`, and optional TLS file paths
 2. one small env file per instance for secrets
 
 Per-instance env files live here:
@@ -169,22 +173,36 @@ What is fixed on purpose:
 
 ## Instance Layout
 
-Everything below is derived from the registered root path of one instance:
+By default the main instance layout looks like this:
 
 ```txt
 <instance-root>/
 ├── admin/              # built admin frontend served by Fastify
 ├── admin-users.txt     # local admin users
 ├── build/              # Eleventy build output
-├── content/            # content files grouped by schema outputDir
+├── content/            # default content root
 ├── theme/              # templates, assets, admin schemas
 └── web/                # published static site for Nginx
 ```
 
-Only `content/` itself is created automatically.
+If you pass `--content-root`, the Markdown files may live outside the instance root entirely.
+Only the default local `content/` path is created automatically.
 
 Theme-specific subdirectories are derived from the schemas and are created on demand when entries are saved.
-The bundled default theme typically uses `content/lessons`, `content/tasks`, `content/topics`, and `content/resources`.
+The bundled default theme typically uses `lessons`, `tasks`, `topics`, and `resources` below the configured content root.
+
+Example with an external content repository:
+
+```bash
+cd /srv/curriculum-designer/repo
+sudo npm run instance:create -- site-a /srv/customer-a/curriculum-designer --content-root /srv/customer-a/content-repo/content --server-name site-a.example.org --ssl-certificate /etc/letsencrypt/live/site-a.example.org/fullchain.pem --ssl-certificate-key /etc/letsencrypt/live/site-a.example.org/privkey.pem --admin-port 8787
+```
+
+In that setup:
+
+- the application still lives in `/srv/curriculum-designer/repo`
+- the instance runtime lives in `/srv/customer-a/curriculum-designer`
+- the Markdown files come from `/srv/customer-a/content-repo/content`
 
 ## Daily Operations
 
@@ -230,6 +248,7 @@ This removes:
 - `<instance-root>/admin-users.txt`
 
 The instance root itself stays in place.
+An external `contentRoot` also stays in place.
 
 ## Multiple Instances
 
@@ -256,6 +275,7 @@ Example:
 The only per-instance values that normally differ are:
 
 - registry `root`
+- registry `contentRoot` when content comes from a different checkout
 - registry `adminPort`
 - `SESSION_SECRET`
 

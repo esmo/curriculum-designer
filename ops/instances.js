@@ -38,7 +38,7 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  npm run instance:create -- <name> <root> --server-name <name> [--ssl-certificate <file>] [--ssl-certificate-key <file>] [--admin-port <port>] [--admin-user <username>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
+      "  npm run instance:create -- <name> <root> --server-name <name> [--content-root <path>] [--ssl-certificate <file>] [--ssl-certificate-key <file>] [--admin-port <port>] [--admin-user <username>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
       "  npm run instance:install -- <name> [--registry <file>]",
       "  npm run instance:delete -- <name> [--registry <file>]",
       "  npm run instance:resolve -- <name> [--registry <file>]",
@@ -276,14 +276,22 @@ function enableNginxSite(siteName) {
   return enabledFile;
 }
 
-function ensureInstanceLayout(instanceRoot, serviceUser, serviceGroup) {
-  const paths = deriveInstancePaths(REPO_DIR, instanceRoot);
+function ensureInstanceLayout(instanceRoot, contentRoot, serviceUser, serviceGroup) {
+  const paths = deriveInstancePaths(REPO_DIR, instanceRoot, {
+    contentRoot,
+  });
+  const defaultContentRoot = path.join(paths.instanceRoot, "content");
 
   fs.mkdirSync(paths.themeRoot, { recursive: true });
-  fs.mkdirSync(paths.contentRoot, { recursive: true });
   fs.mkdirSync(paths.buildRoot, { recursive: true });
   fs.mkdirSync(paths.webRoot, { recursive: true });
   fs.mkdirSync(paths.adminRuntimeRoot, { recursive: true });
+
+  if (paths.contentRoot === defaultContentRoot) {
+    fs.mkdirSync(paths.contentRoot, { recursive: true });
+  } else if (fs.existsSync(paths.contentRoot) && !fs.statSync(paths.contentRoot).isDirectory()) {
+    throw new Error(`Content root is not a directory: ${paths.contentRoot}`);
+  }
 
   const themeEntries = fs.existsSync(paths.themeRoot)
     ? fs.readdirSync(paths.themeRoot)
@@ -323,6 +331,9 @@ async function createInstance(args) {
 
   const registryFile = resolveRegistryFile(options.registry);
   const resolvedRoot = path.resolve(instanceRoot);
+  const resolvedContentRoot = String(options["content-root"] || "").trim()
+    ? path.resolve(options["content-root"])
+    : "";
   const adminPort = parseAdminPort(options["admin-port"], 8787);
   const serverName = String(options["server-name"] || "").trim();
   const sslCertificate = String(options["ssl-certificate"] || "").trim();
@@ -372,7 +383,12 @@ async function createInstance(args) {
     confirmation: "Repeat password: ",
   });
 
-  const paths = ensureInstanceLayout(resolvedRoot, serviceUser, serviceGroup);
+  const paths = ensureInstanceLayout(
+    resolvedRoot,
+    resolvedContentRoot,
+    serviceUser,
+    serviceGroup
+  );
   const adminUserResult = await setUserPassword(
     paths.adminUserFile,
     adminUser,
@@ -380,6 +396,7 @@ async function createInstance(args) {
   );
   const registered = registerInstance(registry.filePath, instanceName, {
     root: resolvedRoot,
+    contentRoot: resolvedContentRoot,
     adminPort,
     serverName,
     sslCertificate,
@@ -408,6 +425,7 @@ async function createInstance(args) {
       `Created instance "${registered.instanceName}".`,
       `Registry: ${registered.registryFile}`,
       `Root: ${registered.root}`,
+      `Content root: ${paths.contentRoot}`,
       `Env file: ${registered.envFile}`,
       `Service: ${registered.serviceName}`,
       `Server name: ${registered.serverName}`,
@@ -567,6 +585,7 @@ function resolveInstance(args) {
       WEB_ROOT: runtime.paths.webRoot,
       ADMIN_RUNTIME_ROOT: runtime.paths.adminRuntimeRoot,
       ADMIN_USER_FILE: runtime.paths.adminUserFile,
+      CONTENT_ROOT: runtime.paths.contentRoot,
       SERVER_NAME: runtime.serverName,
       SSL_CERTIFICATE: runtime.sslCertificate,
       SSL_CERTIFICATE_KEY: runtime.sslCertificateKey,
@@ -597,6 +616,7 @@ function resolveInstance(args) {
         registryFile: runtime.registryFile,
         envFile: runtime.envFile || resolveInstanceEnvFile(runtime.registryFile, runtime.instanceName),
         root: runtime.paths.instanceRoot,
+        contentRoot: runtime.paths.contentRoot,
         adminPort: runtime.adminPort,
         serverName: runtime.serverName,
         sslCertificate: runtime.sslCertificate,
@@ -613,7 +633,7 @@ function listInstances(args) {
   const registry = readRegistryFile(options.registry);
   for (const [instanceName, entry] of Object.entries(registry.instances)) {
     process.stdout.write(
-      `${instanceName}\t${entry.root}\t${entry.adminPort}\n`
+      `${instanceName}\t${entry.root}\t${entry.contentRoot || path.join(entry.root, "content")}\t${entry.adminPort}\n`
     );
   }
 }

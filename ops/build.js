@@ -31,7 +31,9 @@ function ensureThemeDirectory() {
 }
 
 function ensureContentDirectory() {
-  ensureDirectory(CONTENT_ROOT);
+  if (!fs.existsSync(CONTENT_ROOT) || !fs.statSync(CONTENT_ROOT).isDirectory()) {
+    throw new Error(`Content root is missing or invalid: ${CONTENT_ROOT}`);
+  }
 }
 
 function prepareInputDirectory() {
