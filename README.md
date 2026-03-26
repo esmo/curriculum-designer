@@ -30,7 +30,7 @@ Prerequisites on the server:
 
 ```bash
 cd /srv/curriculum-designer/repo
-sudo npm run instance:create -- site-a /srv/customer-a/curriculum-designer --admin-port 8787 --server-name site-a.example.org
+sudo npm run instance:create -- site-a /srv/customer-a/curriculum-designer --server-name site-a.example.org --ssl-certificate /etc/letsencrypt/live/site-a.example.org/fullchain.pem --ssl-certificate-key /etc/letsencrypt/live/site-a.example.org/privkey.pem --admin-port 8787
 ```
 
 The create command:
@@ -62,7 +62,7 @@ sudo npm run instance:install -- site-a
 
 Primary commands:
 
-- `sudo npm run instance:create -- <name> <root> [--admin-port <port>] [--server-name <name>] [--admin-user <username>]`
+- `sudo npm run instance:create -- <name> <root> --server-name <name> [--ssl-certificate <file>] [--ssl-certificate-key <file>] [--admin-port <port>] [--admin-user <username>]`
 - `sudo npm run instance:install -- <name>`
 - `sudo npm run instance:delete -- <name>`
 - `npm run instance:list`
@@ -83,7 +83,7 @@ What they do:
 - `admin:users` manages admin logins by instance name instead of by environment variable.
 
 Commands that modify `/etc`, `systemd`, or `nginx` must be run with `sudo`.
-If `--server-name` is omitted, the instance name is used as the Nginx `server_name`.
+For HTTPS pass both `--ssl-certificate` and `--ssl-certificate-key`. If both are omitted, the generated site is HTTP-only.
 
 ## Registry
 
@@ -101,12 +101,16 @@ Example:
     "site-a": {
       "root": "/srv/customer-a/curriculum-designer",
       "adminPort": 8787,
-      "serverName": "site-a.example.org"
+      "serverName": "site-a.example.org",
+      "sslCertificate": "/etc/letsencrypt/live/site-a.example.org/fullchain.pem",
+      "sslCertificateKey": "/etc/letsencrypt/live/site-a.example.org/privkey.pem"
     },
     "site-b": {
       "root": "/var/www/customer-b/curriculum-designer",
       "adminPort": 8788,
-      "serverName": "site-b.example.org www.site-b.example.org"
+      "serverName": "site-b.example.org www.site-b.example.org",
+      "sslCertificate": "/etc/letsencrypt/live/site-b.example.org/fullchain.pem",
+      "sslCertificateKey": "/etc/letsencrypt/live/site-b.example.org/privkey.pem"
     }
   }
 }
@@ -118,7 +122,8 @@ Important points:
 - each instance can use any root path
 - instances do not need to live under one shared `instancesRoot`
 - the registry stores non-secret operational data only
-- `serverName` is written directly into the generated Nginx site as `server_name`
+- `serverName` defines the public host names of the generated Nginx site
+- `sslCertificate` and `sslCertificateKey` enable HTTPS in the generated Nginx site
 
 List registered instances:
 
@@ -138,7 +143,7 @@ npm run instance:resolve -- site-a
 
 Runtime uses two layers:
 
-1. the registry file for `root` and `adminPort`
+1. the registry file for `root`, `adminPort`, `serverName`, and optional TLS file paths
 2. one small env file per instance for secrets
 
 Per-instance env files live here:
@@ -308,17 +313,57 @@ Supported field inputs:
 
 ## Nginx
 
-The generated site file contains:
+The generated site file is:
+
+- `/etc/nginx/sites-available/curriculum-designer-<instance>.conf`
+
+When installed, the CLI also creates:
+
+- `/etc/nginx/sites-enabled/curriculum-designer-<instance>.conf`
+
+The generated site contains:
 
 - `root <instance-root>/web`
+- `index index.html`
 - redirect from `/admin` to `/admin/`
 - reverse proxy from `/admin/` to `127.0.0.1:<adminPort>`
 - `server_name <serverName>`
+- HTTP-to-HTTPS redirect if `sslCertificate` and `sslCertificateKey` are configured
+- `listen 443 ssl` with the configured certificate files if TLS is configured
 
-Files:
+HTTPS example:
 
-- available site: `/etc/nginx/sites-available/curriculum-designer-<instance>.conf`
-- enabled site: `/etc/nginx/sites-enabled/curriculum-designer-<instance>.conf`
+```nginx
+server {
+  listen 80;
+  listen [::]:80;
+  server_name site-a.example.org;
+  return 301 https://$host$request_uri;
+}
+
+server {
+  listen 443 ssl;
+  listen [::]:443 ssl;
+  server_name site-a.example.org;
+
+  ssl_certificate /etc/letsencrypt/live/site-a.example.org/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/site-a.example.org/privkey.pem;
+
+  root /srv/customer-a/curriculum-designer/web;
+  index index.html;
+
+  location = /admin {
+    return 301 /admin/;
+  }
+
+  location /admin/ {
+    proxy_pass http://127.0.0.1:8787/admin/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
+```
 
 `npm run instance:install -- <instance>` creates the symlink in `sites-enabled`, validates the Nginx config, and reloads Nginx.
 

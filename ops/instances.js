@@ -17,8 +17,8 @@ const {
   readRegistryFile,
   registerInstance,
   resolveInstanceEnvFile,
-  resolveInstanceRuntime,
   resolveNginxSiteName,
+  resolveInstanceRuntime,
   resolveRegistryFile,
   resolveServiceName,
   unregisterInstance,
@@ -38,7 +38,7 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  npm run instance:create -- <name> <root> [--admin-port <port>] [--server-name <name>] [--admin-user <username>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
+      "  npm run instance:create -- <name> <root> --server-name <name> [--ssl-certificate <file>] [--ssl-certificate-key <file>] [--admin-port <port>] [--admin-user <username>] [--service-user <user>] [--service-group <group>] [--session-secret <secret>] [--registry <file>]",
       "  npm run instance:install -- <name> [--registry <file>]",
       "  npm run instance:delete -- <name> [--registry <file>]",
       "  npm run instance:resolve -- <name> [--registry <file>]",
@@ -190,33 +190,62 @@ function nginxSiteEnabledFile(siteName) {
   return path.join(NGINX_SITES_ENABLED_DIR, siteName);
 }
 
-function writeNginxSite(siteName, serverName, webRoot, adminPort) {
+function siteLocationBlockLines(webRoot, adminPort) {
+  return [
+    `  root ${webRoot};`,
+    "  index index.html;",
+    "",
+    "  location = /admin {",
+    "    return 301 /admin/;",
+    "  }",
+    "",
+    "  location /admin/ {",
+    `    proxy_pass http://127.0.0.1:${adminPort}/admin/;`,
+    "    proxy_set_header Host $host;",
+    "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+    "    proxy_set_header X-Forwarded-Proto $scheme;",
+    "  }",
+  ];
+}
+
+function writeNginxSite(siteName, serverName, webRoot, adminPort, sslCertificate, sslCertificateKey) {
   const target = nginxSiteAvailableFile(siteName);
   fs.mkdirSync(NGINX_SITES_AVAILABLE_DIR, { recursive: true });
+  const hasTls = Boolean(sslCertificate && sslCertificateKey);
+  const lines = hasTls
+    ? [
+        "server {",
+        "  listen 80;",
+        "  listen [::]:80;",
+        `  server_name ${serverName};`,
+        "  return 301 https://$host$request_uri;",
+        "}",
+        "",
+        "server {",
+        "  listen 443 ssl;",
+        "  listen [::]:443 ssl;",
+        `  server_name ${serverName};`,
+        "",
+        `  ssl_certificate ${sslCertificate};`,
+        `  ssl_certificate_key ${sslCertificateKey};`,
+        "",
+        ...siteLocationBlockLines(webRoot, adminPort),
+        "}",
+        "",
+      ]
+    : [
+        "server {",
+        "  listen 80;",
+        "  listen [::]:80;",
+        `  server_name ${serverName};`,
+        "",
+        ...siteLocationBlockLines(webRoot, adminPort),
+        "}",
+        "",
+      ];
   fs.writeFileSync(
     target,
-    [
-      "server {",
-      "  listen 80;",
-      "  listen [::]:80;",
-      `  server_name ${serverName};`,
-      "",
-      `  root ${webRoot};`,
-      "  index index.html;",
-      "",
-      "  location = /admin {",
-      "    return 301 /admin/;",
-      "  }",
-      "",
-      "  location /admin/ {",
-      `    proxy_pass http://127.0.0.1:${adminPort}/admin/;`,
-      "    proxy_set_header Host $host;",
-      "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
-      "    proxy_set_header X-Forwarded-Proto $scheme;",
-      "  }",
-      "}",
-      "",
-    ].join("\n"),
+    lines.join("\n"),
     "utf8"
   );
 }
@@ -295,7 +324,9 @@ async function createInstance(args) {
   const registryFile = resolveRegistryFile(options.registry);
   const resolvedRoot = path.resolve(instanceRoot);
   const adminPort = parseAdminPort(options["admin-port"], 8787);
-  const serverName = String(options["server-name"] || "").trim() || instanceName;
+  const serverName = String(options["server-name"] || "").trim();
+  const sslCertificate = String(options["ssl-certificate"] || "").trim();
+  const sslCertificateKey = String(options["ssl-certificate-key"] || "").trim();
   const sessionSecret =
     String(options["session-secret"] || "").trim() ||
     crypto.randomBytes(32).toString("hex");
@@ -306,6 +337,14 @@ async function createInstance(args) {
 
   if (adminPort < 1) {
     fail("Admin port must be between 1 and 65535.");
+  }
+
+  if (!serverName) {
+    fail("--server-name is required.");
+  }
+
+  if (Boolean(sslCertificate) !== Boolean(sslCertificateKey)) {
+    fail("Define both --ssl-certificate and --ssl-certificate-key or neither.");
   }
 
   if (sessionSecret.length < 32) {
@@ -343,6 +382,8 @@ async function createInstance(args) {
     root: resolvedRoot,
     adminPort,
     serverName,
+    sslCertificate,
+    sslCertificateKey,
   });
 
   writeEnvFile(envFile, instanceName, registry.filePath, sessionSecret);
@@ -356,7 +397,9 @@ async function createInstance(args) {
     registered.nginxSiteName,
     registered.serverName,
     paths.webRoot,
-    registered.adminPort
+    registered.adminPort,
+    registered.sslCertificate,
+    registered.sslCertificateKey
   );
   runCommand("systemctl", ["daemon-reload"]);
 
@@ -405,6 +448,14 @@ async function installInstance(args) {
     );
   }
 
+  writeNginxSite(
+    runtime.nginxSiteName,
+    runtime.serverName,
+    runtime.paths.webRoot,
+    runtime.adminPort,
+    runtime.sslCertificate,
+    runtime.sslCertificateKey
+  );
   runCommand("systemctl", ["daemon-reload"]);
   const enabledSiteFile = enableNginxSite(runtime.nginxSiteName);
   runCommand("systemctl", ["enable", "--now", runtime.serviceName]);
@@ -517,6 +568,8 @@ function resolveInstance(args) {
       ADMIN_RUNTIME_ROOT: runtime.paths.adminRuntimeRoot,
       ADMIN_USER_FILE: runtime.paths.adminUserFile,
       SERVER_NAME: runtime.serverName,
+      SSL_CERTIFICATE: runtime.sslCertificate,
+      SSL_CERTIFICATE_KEY: runtime.sslCertificateKey,
       SERVICE_NAME:
         runtime.serviceName || resolveServiceName(runtime.instanceName),
       NGINX_SITE_NAME:
@@ -546,6 +599,8 @@ function resolveInstance(args) {
         root: runtime.paths.instanceRoot,
         adminPort: runtime.adminPort,
         serverName: runtime.serverName,
+        sslCertificate: runtime.sslCertificate,
+        sslCertificateKey: runtime.sslCertificateKey,
       },
       null,
       2
